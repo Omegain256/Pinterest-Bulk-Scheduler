@@ -2,15 +2,13 @@ import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 import sharp from 'sharp';
+import { createCanvas } from '@napi-rs/canvas';
 // Initialize the Google Generative AI SDK with the key
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-// ─── SVG Overlay Engine ──────────────────────────────────────────────────────
-// Produces 4 distinct, reference-accurate Pinterest typography styles per niche
-
-function esc(s) {
-    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
+// ─── Canvas Overlay Engine ───────────────────────────────────────────────────
+// Draws niche-specific Pinterest text overlays using @napi-rs/canvas.
+// Returns a PNG Buffer that sharp can composite on any platform (no librsvg needed).
 
 function wrapWords(text, maxChars) {
     const words = text.split(' ');
@@ -28,6 +26,136 @@ function wrapWords(text, maxChars) {
     return lines;
 }
 
+// Draw a vertical gradient rect filling the canvas
+function drawGradient(ctx, w, h, fromY, opacity) {
+    const grad = ctx.createLinearGradient(0, fromY, 0, h);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, `rgba(0,0,0,${opacity})`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, fromY, w, h - fromY);
+}
+
+// Draw bold text with drop shadow
+function drawText(ctx, text, x, y, { fontSize = 84, weight = 'bold', color = '#ffffff', shadowBlur = 14, shadowOpacity = 0.9, strokeWidth = 0, align = 'left' } = {}) {
+    ctx.save();
+    ctx.font = `${weight} ${fontSize}px sans-serif`;
+    ctx.textAlign = align;
+    ctx.shadowColor = `rgba(0,0,0,${shadowOpacity})`;
+    ctx.shadowBlur = shadowBlur;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 4;
+    if (strokeWidth > 0) {
+        ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+        ctx.lineWidth = strokeWidth * 2;
+        ctx.lineJoin = 'round';
+        ctx.strokeText(text, x, y);
+    }
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, y);
+    ctx.restore();
+}
+
+async function generateTextOverlayBuffer(title, category) {
+    const W = 1000, H = 1500;
+    const canvas = createCanvas(W, H);
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H); // transparent base
+
+    // ── Style 1: Beauty & Makeup ────────────────────────────────────────────
+    if (category === 'Beauty & Makeup') {
+        drawGradient(ctx, W, H, H * 0.54, 0.72);
+        const lines = wrapWords(title, 16).slice(0, 3);
+        const lineH = 110;
+        const startY = H - 115 - (lines.length - 1) * lineH;
+        lines.forEach((l, i) => drawText(ctx, l, 60, startY + i * lineH, { fontSize: 100, weight: '900', shadowBlur: 18, strokeWidth: 4 }));
+    }
+
+    // ── Style 2: Hair Styling ───────────────────────────────────────────────
+    else if (category === 'Hair Styling') {
+        const lines = wrapWords(title, 24).slice(0, 3);
+        const lineH = 72;
+        const pad = 36;
+        const boxW = 880;
+        const boxH = lines.length * lineH + pad * 2;
+        const boxX = (W - boxW) / 2;
+        const boxY = H - boxH - 65;
+        // White box with border
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(boxX, boxY, boxW, boxH);
+        ctx.strokeStyle = '#111111';
+        ctx.lineWidth = 10;
+        ctx.strokeRect(boxX + 5, boxY + 5, boxW - 10, boxH - 10);
+        lines.forEach((l, i) => drawText(ctx, l, W / 2, boxY + pad + (i + 0.82) * lineH, { fontSize: 64, weight: '700', color: '#111111', shadowBlur: 0, shadowOpacity: 0, align: 'center' }));
+    }
+
+    // ── Style 3: Fashion & Outfits ──────────────────────────────────────────
+    else if (category === 'Fashion & Outfits') {
+        const upper = title.toUpperCase();
+        const longestWordLen = Math.max(...upper.split(' ').map(w => w.length));
+        let fontSize = 118;
+        if (longestWordLen > 6) fontSize = Math.max(70, 118 - ((longestWordLen - 6) * 10));
+        const lines = wrapWords(upper, 14).slice(0, 4);
+        const lineH = Math.round(fontSize * 1.1);
+        const midY = 660;
+        const startY = midY - ((lines.length - 1) * lineH) / 2;
+        lines.forEach((l, i) => drawText(ctx, l, W / 2, startY + i * lineH, { fontSize, weight: '900', shadowBlur: 12, strokeWidth: 5, align: 'center' }));
+        // Arrow
+        const arrowY = startY + lines.length * lineH + 50;
+        drawText(ctx, '\u2192', W / 2, arrowY, { fontSize: 90, weight: 'normal', shadowBlur: 10, align: 'center' });
+        // Subtitle
+        const firstWord = title.split(' ')[0];
+        const subtitle = /^\d+/.test(firstWord) ? `${firstWord}+ inspirations` : 'See all inspirations';
+        ctx.save();
+        ctx.font = '300 45px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.fillText(subtitle, W / 2, H - 48);
+        ctx.restore();
+        // Sparkle decorations
+        [[875, midY - 230], [125, midY + 40], [865, midY + 200], [120, midY - 150]]
+            .forEach(([sx, sy]) => {
+                ctx.save();
+                ctx.font = '46px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = 'rgba(255,255,255,0.88)';
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 6;
+                ctx.fillText('\u2726', sx, sy);
+                ctx.restore();
+            });
+    }
+
+    // ── Style 4: Nails & Beauty ─────────────────────────────────────────────
+    else if (category === 'Nails & Beauty') {
+        drawGradient(ctx, W, H, H * 0.58, 0.68);
+        const words = title.split(' ');
+        const bigWord = words[0] || '';
+        const restUpper = words.slice(1).join(' ').toUpperCase();
+        const restLines = wrapWords(restUpper, 13).slice(0, 3);
+        drawText(ctx, bigWord, 75, 1060, { fontSize: 170, weight: '900', shadowBlur: 18, strokeWidth: 6 });
+        restLines.forEach((l, i) => {
+            const isFirst = i === 0;
+            drawText(ctx, l, 75, isFirst ? 1150 : 1150 + 75 + (i - 1) * 112, {
+                fontSize: isFirst ? 62 : 108,
+                weight: isFirst ? '400' : '700',
+                shadowBlur: 14,
+                strokeWidth: isFirst ? 2 : 4
+            });
+        });
+    }
+
+    // ── Fallback ────────────────────────────────────────────────────────────
+    else {
+        drawGradient(ctx, W, H, H * 0.42, 0.87);
+        const lines = wrapWords(title, 20).slice(0, 3);
+        const startY = H - 120 - (lines.length - 1) * 95;
+        lines.forEach((l, i) => drawText(ctx, l, 70, startY + i * 95, { fontSize: 84, weight: '900', strokeWidth: 4 }));
+    }
+
+    return canvas.toBuffer('image/png');
+}
+
+// ── legacy stub kept for reference — no longer used
 function generateSVGOverlay(title, category) {
     // ── Style 1: Beauty & Makeup ─────────────────────────────────────────────
     // Bold white text, bottom-left, no box. Dark clothing in photo = natural contrast.
@@ -145,7 +273,7 @@ function generateSVGOverlay(title, category) {
         <rect width="1000" height="1500" fill="url(#g)"/>
         ${texts}
     </svg>`;
-}
+} // end legacy stub
 
 export async function POST(req) {
     try {
@@ -298,12 +426,12 @@ ${nicheInstruction}
                             const extractedNum = urlMatch ? urlMatch[1] || urlMatch[0] : null;
                             const prefix = extractedNum ? `${extractedNum}+ ` : '15+ ';
                             const overlayTitle = `${prefix}${textData.shortOverlayTitle}`.trim();
-                            const svgOverlay = generateSVGOverlay(overlayTitle, resolvedCategory);
+                            const overlayPngBuffer = await generateTextOverlayBuffer(overlayTitle, resolvedCategory);
 
-                            // Composite Image + SVG using sharp
+                            // Composite Image + Canvas PNG overlay using sharp (PNG compositing works everywhere)
                             const compositedBuffer = await sharp(rawBuffer)
                                 .resize(1000, 1500, { fit: 'cover' })
-                                .composite([{ input: Buffer.from(svgOverlay), blend: 'over' }])
+                                .composite([{ input: overlayPngBuffer, blend: 'over' }])
                                 .jpeg({ quality: 90 })
                                 .toBuffer();
 
