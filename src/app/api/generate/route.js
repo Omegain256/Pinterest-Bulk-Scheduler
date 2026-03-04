@@ -36,7 +36,7 @@ function generateSVGOverlay(title, category) {
         const lineH = 105;
         const startY = 1385 - (lines.length - 1) * lineH;
         const texts = lines.map((l, i) =>
-            `<text x="60" y="${startY + i * lineH}" font-family="'Arial Black', Arial, sans-serif" font-weight="900" font-size="100" fill="#ffffff" stroke="rgba(0,0,0,0.65)" stroke-width="4" stroke-linejoin="round" paint-order="stroke fill" filter="url(#sh)">${esc(l)}</text>`
+            `<text x="60" y="${startY + i * lineH}" font-family="'Liberation Sans', 'DejaVu Sans', Arial, sans-serif" font-weight="900" font-size="100" fill="#ffffff" stroke="rgba(0,0,0,0.65)" stroke-width="4" stroke-linejoin="round" paint-order="stroke fill" filter="url(#sh)">${esc(l)}</text>`
         ).join('');
         return `<svg width="1000" height="1500" xmlns="http://www.w3.org/2000/svg">
             <defs>
@@ -62,7 +62,7 @@ function generateSVGOverlay(title, category) {
         const boxX = (1000 - boxW) / 2;
         const boxY = 1500 - boxH - 65;
         const texts = lines.map((l, i) =>
-            `<text x="500" y="${boxY + pad + (i + 0.82) * lineH}" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" font-weight="700" font-size="64" fill="#111111">${esc(l)}</text>`
+            `<text x="500" y="${boxY + pad + (i + 0.82) * lineH}" text-anchor="middle" font-family="'Liberation Sans', 'DejaVu Sans', Arial, sans-serif" font-weight="700" font-size="64" fill="#111111">${esc(l)}</text>`
         ).join('');
         return `<svg width="1000" height="1500" xmlns="http://www.w3.org/2000/svg">
             <rect x="${boxX}" y="${boxY}" width="${boxW}" height="${boxH}" fill="#ffffff"/>
@@ -88,19 +88,19 @@ function generateSVGOverlay(title, category) {
         const midY = 660;
         const startY = midY - ((lines.length - 1) * lineH) / 2;
         const texts = lines.map((l, i) =>
-            `<text x="500" y="${startY + i * lineH}" text-anchor="middle" font-family="'Arial Black', Impact, Arial, sans-serif" font-weight="900" font-size="${fontSize}" fill="#ffffff" stroke="rgba(0,0,0,0.65)" stroke-width="5" stroke-linejoin="round" paint-order="stroke fill" filter="url(#sh)">${esc(l)}</text>`
+            `<text x="500" y="${startY + i * lineH}" text-anchor="middle" font-family="'Liberation Sans', 'DejaVu Sans', Arial, sans-serif" font-weight="900" font-size="${fontSize}" fill="#ffffff" stroke="rgba(0,0,0,0.65)" stroke-width="5" stroke-linejoin="round" paint-order="stroke fill" filter="url(#sh)">${esc(l)}</text>`
         ).join('');
         const arrowY = startY + lines.length * lineH + 50;
         const sparkles = [
             [875, midY - 230], [125, midY + 40], [865, midY + 200], [120, midY - 150]
-        ].map(([sx, sy]) => `<text x="${sx}" y="${sy}" text-anchor="middle" font-family="Arial" font-size="46" fill="#ffffff" opacity="0.88">✦</text>`).join('');
+        ].map(([sx, sy]) => `<text x="${sx}" y="${sy}" text-anchor="middle" font-family="'DejaVu Sans', sans-serif" font-size="46" fill="#ffffff" opacity="0.88">&#10022;</text>`).join('');
         const firstWord = title.split(' ')[0];
         const subtitle = /^\d+/.test(firstWord) ? `${firstWord}+ inspirations` : 'See all inspirations';
         return `<svg width="1000" height="1500" xmlns="http://www.w3.org/2000/svg">
             <defs><filter id="sh"><feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="rgba(0,0,0,0.65)"/></filter></defs>
             ${texts}
-            <text x="500" y="${arrowY}" text-anchor="middle" font-family="Arial" font-size="90" fill="#ffffff" filter="url(#sh)">→</text>
-            <text x="500" y="1452" text-anchor="middle" font-family="Arial" font-weight="300" font-size="45" fill="#ffffff" opacity="0.85">${esc(subtitle)}</text>
+            <text x="500" y="${arrowY}" text-anchor="middle" font-family="'Liberation Sans', 'DejaVu Sans', sans-serif" font-size="90" fill="#ffffff" filter="url(#sh)">&#8594;</text>
+            <text x="500" y="1452" text-anchor="middle" font-family="'Liberation Sans', 'DejaVu Sans', sans-serif" font-weight="300" font-size="45" fill="#ffffff" opacity="0.85">${esc(subtitle)}</text>
             ${sparkles}
         </svg>`;
     }
@@ -112,13 +112,13 @@ function generateSVGOverlay(title, category) {
         const bigWord = words[0] || '';
         const restUpper = words.slice(1).join(' ').toUpperCase();
         const restLines = wrapWords(restUpper, 13).slice(0, 3);
-        const bigText = `<text x="75" y="1060" font-family="Georgia, 'Times New Roman', serif" font-weight="900" font-size="170" fill="#ffffff" stroke="rgba(0,0,0,0.65)" stroke-width="6" stroke-linejoin="round" paint-order="stroke fill" filter="url(#sh)">${esc(bigWord)}</text>`;
+        const bigText = `<text x="75" y="1060" font-family="'Liberation Serif', 'DejaVu Serif', Georgia, serif" font-weight="900" font-size="170" fill="#ffffff" stroke="rgba(0,0,0,0.65)" stroke-width="6" stroke-linejoin="round" paint-order="stroke fill" filter="url(#sh)">${esc(bigWord)}</text>`;
         const subTexts = restLines.map((l, i) => {
             const isFirst = i === 0;
             const fs = isFirst ? 62 : 108;
             const fw = isFirst ? '400' : '700';
             const yp = isFirst ? 1150 : (1150 + 75 + (i - 1) * 112);
-            return `<text x="75" y="${yp}" font-family="Georgia, 'Times New Roman', serif" font-weight="${fw}" font-size="${fs}" fill="#ffffff" stroke="rgba(0,0,0,0.65)" stroke-width="${isFirst ? 2 : 4}" stroke-linejoin="round" paint-order="stroke fill" filter="url(#sh)">${esc(l)}</text>`;
+            return `<text x="75" y="${yp}" font-family="'Liberation Serif', 'DejaVu Serif', Georgia, serif" font-weight="${fw}" font-size="${fs}" fill="#ffffff" stroke="rgba(0,0,0,0.65)" stroke-width="${isFirst ? 2 : 4}" stroke-linejoin="round" paint-order="stroke fill" filter="url(#sh)">${esc(l)}</text>`;
         }).join('');
         return `<svg width="1000" height="1500" xmlns="http://www.w3.org/2000/svg">
             <defs>
@@ -138,7 +138,7 @@ function generateSVGOverlay(title, category) {
     const lines = wrapWords(title, 20).slice(0, 3);
     const startY = 1380 - (lines.length - 1) * 92;
     const texts = lines.map((l, i) =>
-        `<text x="70" y="${startY + i * 92}" font-family="Arial, sans-serif" font-weight="900" font-size="84" fill="#ffffff" stroke="rgba(0,0,0,0.65)" stroke-width="4" stroke-linejoin="round" paint-order="stroke fill">${esc(l)}</text>`
+        `<text x="70" y="${startY + i * 92}" font-family="'Liberation Sans', 'DejaVu Sans', Arial, sans-serif" font-weight="900" font-size="84" fill="#ffffff" stroke="rgba(0,0,0,0.65)" stroke-width="4" stroke-linejoin="round" paint-order="stroke fill">${esc(l)}</text>`
     ).join('');
     return `<svg width="1000" height="1500" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="g" x1="0%" y1="42%" x2="0%" y2="100%"><stop offset="0%" stop-color="rgba(0,0,0,0)"/><stop offset="100%" stop-color="rgba(0,0,0,0.85)"/></linearGradient></defs>
