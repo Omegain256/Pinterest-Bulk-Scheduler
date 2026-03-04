@@ -150,7 +150,7 @@ function generateSVGOverlay(title, category) {
 export async function POST(req) {
     try {
         const apiKey = req.headers.get('x-api-key');
-        if (!apiKey || apiKey !== process.env.APP_API_KEY) {
+        if (!apiKey || apiKey !== process.env.GEMINI_API_KEY) {
             return NextResponse.json({ error: 'Unauthorized: Invalid API Key' }, { status: 401 });
         }
 
