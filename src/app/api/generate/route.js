@@ -3,32 +3,12 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 import sharp from 'sharp';
 import { createCanvas, GlobalFonts } from '@napi-rs/canvas';
-import { readFileSync, existsSync } from 'fs';
-import path from 'path';
+import { interBoldBuffer } from './font-data.js';
 
-// Register the Inter font at module load time.
-// Tries multiple paths because process.cwd() is reliably the project root on Vercel (/var/task),
-// and both public/fonts and src/fonts are included in the Vercel deployment bundle.
-(function registerFont() {
-    const candidates = [
-        path.join(process.cwd(), 'public', 'fonts', 'Inter-Bold.ttf'),
-        path.join(process.cwd(), 'src', 'fonts', 'Inter-Bold.ttf'),
-        path.join(process.cwd(), 'src', 'app', 'fonts', 'Inter-Bold.ttf'),
-    ];
-    for (const fontPath of candidates) {
-        try {
-            if (existsSync(fontPath)) {
-                const buf = readFileSync(fontPath);
-                GlobalFonts.register(buf, 'Inter');
-                console.log('[Canvas] Font registered from:', fontPath, '| Families:', GlobalFonts.families?.length);
-                return;
-            }
-        } catch (e) {
-            console.warn('[Canvas] Failed at', fontPath, ':', e.message);
-        }
-    }
-    console.error('[Canvas] FATAL: Inter font not found in any candidate path. Tried:', candidates);
-}());
+// Register the Inter font from the embedded base64 buffer.
+// This is platform-agnostic: no file paths, no process.cwd(), no filesystem access.
+GlobalFonts.register(interBoldBuffer, 'Inter');
+console.log('[Canvas] Font registered. Families count:', GlobalFonts.families?.length ?? 'N/A');
 
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
