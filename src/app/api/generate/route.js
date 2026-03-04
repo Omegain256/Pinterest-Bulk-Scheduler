@@ -3,21 +3,25 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 import sharp from 'sharp';
 import { createCanvas, GlobalFonts } from '@napi-rs/canvas';
-import path from 'path';
 import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import path from 'path';
 
-// Register a bundled font so text renders on ALL environments (including Vercel Linux).
-// We use readFileSync → register(buffer) instead of registerFromPath because
-// registerFromPath can fail silently if process.cwd() resolves differently on Vercel.
+// Register the Inter font bundled in src/fonts/.
+// We use src/ (not public/) so Next.js build tracing includes it in the serverless bundle.
+// Using import.meta.url gives the correct __dirname equivalent in ESM.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 try {
-    const fontPath = path.join(process.cwd(), 'public', 'fonts', 'Inter-Bold.ttf');
-    const fontBuffer = readFileSync(fontPath); // throws immediately if file not found
+    // From src/app/api/generate/route.js, three ../ levels land at src/app/
+    const fontPath = path.join(__dirname, '..', '..', '..', 'fonts', 'Inter-Bold.ttf');
+    console.log('[Canvas] Loading font from:', fontPath);
+    const fontBuffer = readFileSync(fontPath);
     GlobalFonts.register(fontBuffer, 'Inter');
-    console.log('[Canvas] Font registered. Families:', GlobalFonts.families?.length ?? 'N/A');
+    console.log('[Canvas] Font registered OK. Families count:', GlobalFonts.families?.length ?? 'N/A');
 } catch (e) {
     console.error('[Canvas] FATAL: Font registration failed:', e.message);
 }
-// Initialize the Google Generative AI SDK with the key
+
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 // ─── Canvas Overlay Engine ───────────────────────────────────────────────────
