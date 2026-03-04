@@ -3,24 +3,33 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 import sharp from 'sharp';
 import { createCanvas, GlobalFonts } from '@napi-rs/canvas';
-import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
+import { readFileSync, existsSync } from 'fs';
 import path from 'path';
 
-// Register the Inter font bundled in src/fonts/.
-// We use src/ (not public/) so Next.js build tracing includes it in the serverless bundle.
-// Using import.meta.url gives the correct __dirname equivalent in ESM.
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-try {
-    // From src/app/api/generate/route.js, three ../ levels land at src/app/
-    const fontPath = path.join(__dirname, '..', '..', '..', 'fonts', 'Inter-Bold.ttf');
-    console.log('[Canvas] Loading font from:', fontPath);
-    const fontBuffer = readFileSync(fontPath);
-    GlobalFonts.register(fontBuffer, 'Inter');
-    console.log('[Canvas] Font registered OK. Families count:', GlobalFonts.families?.length ?? 'N/A');
-} catch (e) {
-    console.error('[Canvas] FATAL: Font registration failed:', e.message);
-}
+// Register the Inter font at module load time.
+// Tries multiple paths because process.cwd() is reliably the project root on Vercel (/var/task),
+// and both public/fonts and src/fonts are included in the Vercel deployment bundle.
+(function registerFont() {
+    const candidates = [
+        path.join(process.cwd(), 'public', 'fonts', 'Inter-Bold.ttf'),
+        path.join(process.cwd(), 'src', 'fonts', 'Inter-Bold.ttf'),
+        path.join(process.cwd(), 'src', 'app', 'fonts', 'Inter-Bold.ttf'),
+    ];
+    for (const fontPath of candidates) {
+        try {
+            if (existsSync(fontPath)) {
+                const buf = readFileSync(fontPath);
+                GlobalFonts.register(buf, 'Inter');
+                console.log('[Canvas] Font registered from:', fontPath, '| Families:', GlobalFonts.families?.length);
+                return;
+            }
+        } catch (e) {
+            console.warn('[Canvas] Failed at', fontPath, ':', e.message);
+        }
+    }
+    console.error('[Canvas] FATAL: Inter font not found in any candidate path. Tried:', candidates);
+}());
+
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
