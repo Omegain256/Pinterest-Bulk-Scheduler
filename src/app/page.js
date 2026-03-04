@@ -31,7 +31,7 @@ export default function Home() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': apiKey
+          'x-api-key': apiKey.trim()
         },
         body: JSON.stringify({
           urls: urlList,
@@ -101,7 +101,7 @@ export default function Home() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': apiKey
+          'x-api-key': apiKey.trim()
         },
         body: JSON.stringify({
           urls: [pinToRegen.sourceUrl],

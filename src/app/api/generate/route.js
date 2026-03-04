@@ -149,8 +149,11 @@ function generateSVGOverlay(title, category) {
 
 export async function POST(req) {
     try {
-        const apiKey = req.headers.get('x-api-key');
-        if (!apiKey || apiKey !== process.env.GEMINI_API_KEY) {
+        const apiKey = req.headers.get('x-api-key')?.trim();
+        const expectedKey = process.env.GEMINI_API_KEY?.trim();
+
+        if (!apiKey || apiKey !== expectedKey) {
+            console.error(`[AUTH FAILED] Received length: ${apiKey?.length}, Expected length: ${expectedKey?.length}`);
             return NextResponse.json({ error: 'Unauthorized: Invalid API Key' }, { status: 401 });
         }
 
