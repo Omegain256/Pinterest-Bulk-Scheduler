@@ -2,7 +2,19 @@ import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 import sharp from 'sharp';
-import { createCanvas } from '@napi-rs/canvas';
+import { createCanvas, GlobalFonts } from '@napi-rs/canvas';
+import path from 'path';
+
+// Register a bundled font so text renders on ALL environments (including Vercel Linux)
+// This MUST happen before any canvas text drawing.
+try {
+    GlobalFonts.registerFromPath(
+        path.join(process.cwd(), 'public', 'fonts', 'Inter-Bold.ttf'),
+        'Inter'
+    );
+} catch (e) {
+    console.warn('[Canvas] Font registration failed:', e.message);
+}
 // Initialize the Google Generative AI SDK with the key
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -38,7 +50,8 @@ function drawGradient(ctx, w, h, fromY, opacity) {
 // Draw bold text with drop shadow
 function drawText(ctx, text, x, y, { fontSize = 84, weight = 'bold', color = '#ffffff', shadowBlur = 14, shadowOpacity = 0.9, strokeWidth = 0, align = 'left' } = {}) {
     ctx.save();
-    ctx.font = `${weight} ${fontSize}px sans-serif`;
+    // Always specify 'Inter' explicitly — the font we registered from public/fonts/Inter-Bold.ttf
+    ctx.font = `${weight} ${fontSize}px Inter, sans-serif`;
     ctx.textAlign = align;
     ctx.shadowColor = `rgba(0,0,0,${shadowOpacity})`;
     ctx.shadowBlur = shadowBlur;
@@ -106,7 +119,7 @@ async function generateTextOverlayBuffer(title, category) {
         const firstWord = title.split(' ')[0];
         const subtitle = /^\d+/.test(firstWord) ? `${firstWord}+ inspirations` : 'See all inspirations';
         ctx.save();
-        ctx.font = '300 45px sans-serif';
+        ctx.font = '300 45px Inter, sans-serif';
         ctx.textAlign = 'center';
         ctx.fillStyle = 'rgba(255,255,255,0.85)';
         ctx.fillText(subtitle, W / 2, H - 48);
@@ -115,7 +128,7 @@ async function generateTextOverlayBuffer(title, category) {
         [[875, midY - 230], [125, midY + 40], [865, midY + 200], [120, midY - 150]]
             .forEach(([sx, sy]) => {
                 ctx.save();
-                ctx.font = '46px sans-serif';
+                ctx.font = '46px Inter, sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillStyle = 'rgba(255,255,255,0.88)';
                 ctx.shadowColor = 'rgba(0,0,0,0.5)';
