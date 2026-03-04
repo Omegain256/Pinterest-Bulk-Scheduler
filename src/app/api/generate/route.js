@@ -4,16 +4,18 @@ import axios from 'axios';
 import sharp from 'sharp';
 import { createCanvas, GlobalFonts } from '@napi-rs/canvas';
 import path from 'path';
+import { readFileSync } from 'fs';
 
-// Register a bundled font so text renders on ALL environments (including Vercel Linux)
-// This MUST happen before any canvas text drawing.
+// Register a bundled font so text renders on ALL environments (including Vercel Linux).
+// We use readFileSync → register(buffer) instead of registerFromPath because
+// registerFromPath can fail silently if process.cwd() resolves differently on Vercel.
 try {
-    GlobalFonts.registerFromPath(
-        path.join(process.cwd(), 'public', 'fonts', 'Inter-Bold.ttf'),
-        'Inter'
-    );
+    const fontPath = path.join(process.cwd(), 'public', 'fonts', 'Inter-Bold.ttf');
+    const fontBuffer = readFileSync(fontPath); // throws immediately if file not found
+    GlobalFonts.register(fontBuffer, 'Inter');
+    console.log('[Canvas] Font registered. Families:', GlobalFonts.families?.length ?? 'N/A');
 } catch (e) {
-    console.warn('[Canvas] Font registration failed:', e.message);
+    console.error('[Canvas] FATAL: Font registration failed:', e.message);
 }
 // Initialize the Google Generative AI SDK with the key
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
