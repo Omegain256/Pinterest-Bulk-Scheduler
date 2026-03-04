@@ -150,7 +150,7 @@ function generateSVGOverlay(title, category) {
 export async function POST(req) {
     try {
         const apiKey = req.headers.get('x-api-key')?.trim();
-        const expectedKey = process.env.GEMINI_API_KEY?.trim();
+        const expectedKey = process.env.APP_API_KEY?.trim();
 
         if (!apiKey || apiKey !== expectedKey) {
             console.error(`[AUTH FAILED] Received length: ${apiKey?.length}, Expected length: ${expectedKey?.length}`);
