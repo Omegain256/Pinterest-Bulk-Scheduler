@@ -63,11 +63,29 @@ function drawText(ctx, text, x, y, { fontSize = 84, weight = 'bold', color = '#f
     ctx.restore();
 }
 
+// Draw decorative squares seen in modern Pinterest aesthetics
+function drawDecorativeBoxes(ctx, W, H) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = 2;
+    // Top-left small box
+    ctx.strokeRect(60, 60, 40, 40);
+    // Bottom-right small box
+    ctx.strokeRect(W - 100, H - 100, 40, 40);
+    // Mid-side decorative squares (floating)
+    ctx.strokeRect(40, H / 2 - 20, 30, 30);
+    ctx.strokeRect(W - 70, H / 2 + 100, 30, 30);
+    ctx.restore();
+}
+
 async function generateTextOverlayBuffer(title, category) {
     const W = 1000, H = 1500;
     const canvas = createCanvas(W, H);
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, W, H); // transparent base
+
+    // Draw decorative boxes on all styles for branding consistency
+    drawDecorativeBoxes(ctx, W, H);
 
     // ── Style 1: Beauty & Makeup ────────────────────────────────────────────
     if (category === 'Beauty & Makeup') {
@@ -111,8 +129,8 @@ async function generateTextOverlayBuffer(title, category) {
         const arrowY = startY + lines.length * lineH + 50;
         drawText(ctx, '\u2192', W / 2, arrowY, { fontSize: 90, weight: 'normal', shadowBlur: 10, align: 'center' });
         // Subtitle
-        const firstWord = title.split(' ')[0];
-        const subtitle = /^\d+/.test(firstWord) ? `${firstWord}+ inspirations` : 'See all inspirations';
+        const subtitleNum = firstWord.match(/^\d+/)?.[0];
+        const subtitle = subtitleNum ? `${subtitleNum}+ inspirations` : 'See all inspirations';
         ctx.save();
         ctx.font = '300 45px Inter, sans-serif';
         ctx.textAlign = 'center';
@@ -314,10 +332,10 @@ export async function POST(req) {
 
         // Phase 4: Niche Aesthetic Prompt Engineering Lookups — matched to reference styles
         const nichePrompts = {
-            "Beauty & Makeup": "Close-up portrait of strictly one single beautiful woman with dramatic, flawless makeup. No other people. The subject must look entirely human and real — shot on 35mm film, skin pores visible, natural imperfections. Completely avoid plastic, smooth, or 'AI-generated' looks. The subject is centered, face filling the top 65% of the frame. She wears a dark-colored top — ideally a black turtleneck or dark ribbed sweater — which fills the lower portion of the frame and provides a naturally dark zone. Studio-quality continuous lighting, slightly warm, high contrast. Blurred neutral background.",
-            "Hair Styling": "Bright, natural-light lifestyle portrait of strictly one single woman showing off her hairstyle. No other people. The hair texture and skin MUST look extraordinarily realistic, like an unedited smartphone photo or high-end editorial film photography. Avoid any shiny, plastic, over-smoothed 'AI' CGI look. Shot from chest-up, facing the camera directly with a genuine smile. She wears a plain white or light-colored casual t-shirt. Room background is soft white or cream-colored walls with minimal decor. Airy, clean, relatable aesthetic. Photo feels authentic.",
-            "Fashion & Outfits": "Full-body or three-quarter body fashion shot of strictly one single stylish woman showing a complete outfit. No other people. The clothing fabric must look real and textured. Shot on an iPhone in natural daylight, authentic, candid blogger style. Avoid any plastic, perfectly-smoothed CGI appearance. The scene has neutral, muted tones — beige, cream, warm grey walls. Could be a mirror selfie or a posed shot in an aesthetic bedroom or minimalist apartment. Photo has a gentle film-grain quality.",
-            "Nails & Beauty": "Extreme macro close-up of exactly one single woman's hand and nails, fingers displayed elegantly. No other people. Skin texture, pores, and cuticles must be visibly realistic and human, like an unedited raw DSLR photo. Avoid perfectly smooth plastic AI hands. Soft natural window light catches the texture. In the background, soft out-of-focus fabric is visible — a chunky cream knit sweater sleeve. Intimate, feminine, tactile aesthetic."
+            "Beauty & Makeup": "Extreme close-up portrait of strictly one single beautiful woman with dramatic, flawless makeup. No other people, no crowds, no secondary figures. The subject must look entirely human and real — shot on 35mm film, skin pores visible, natural imperfections. Completely avoid plastic, smooth, or 'AI-generated' looks. The subject is centered, face filling the top 65% of the frame. She wears a dark-colored top — ideally a black turtleneck or dark ribbed sweater — which fills the lower portion of the frame and provides a naturally dark zone. Studio-quality continuous lighting, slightly warm, high contrast. Blurred neutral background.",
+            "Hair Styling": "Bright, natural-light lifestyle portrait of strictly one single woman showing off her hairstyle. No other people in background or foreground. The hair texture and skin MUST look extraordinarily realistic, like an unedited smartphone photo or high-end editorial film photography. Avoid any shiny, plastic, over-smoothed 'AI' CGI look. Shot from chest-up, facing the camera directly with a genuine smile. She wears a plain white or light-colored casual t-shirt. Room background is soft white or cream-colored walls with minimal decor. Airy, clean, relatable aesthetic. Photo feels authentic.",
+            "Fashion & Outfits": "Full-body or three-quarter body fashion shot of strictly one single stylish woman showing a complete outfit. No other people, no background crowds. The clothing fabric must look real and textured. Shot on an iPhone in natural daylight, authentic, candid blogger style. Avoid any plastic, perfectly-smoothed CGI appearance. The scene has neutral, muted tones — beige, cream, warm grey walls. Could be a mirror selfie or a posed shot in an aesthetic bedroom or minimalist apartment. Photo has a gentle film-grain quality.",
+            "Nails & Beauty": "Extreme macro close-up of exactly one single woman's hand and nails, fingers displayed elegantly. Only one hand should be the focus. No other people. Skin texture, pores, and cuticles must be visibly realistic and human, like an unedited raw DSLR photo. Avoid perfectly smooth plastic AI hands. Soft natural window light catches the texture. In the background, soft out-of-focus fabric is visible — a chunky cream knit sweater sleeve. Intimate, feminine, tactile aesthetic."
         };
 
         // Niche-specific guidance injected into the Gemini imagePrompt instruction
@@ -329,18 +347,28 @@ export async function POST(req) {
         };
 
         const encoder = new TextEncoder();
+        const urlOccurrences = {};
 
         const stream = new ReadableStream({
             async start(controller) {
                 // Process sequentially to respect rate limits
                 for (let i = 0; i < urls.length; i++) {
                     const url = urls[i];
+                    // Track variations for duplicate URLs
+                    urlOccurrences[url] = (urlOccurrences[url] || 0) + 1;
+                    const variationIndex = urlOccurrences[url];
+                    const isVariation = variationIndex > 1;
+
                     try {
                         // Determine if we need to auto-categorize this specific URL
                         const isAutoDetect = niche === 'Auto-Detect (AI)';
                         const nicheInstruction = isAutoDetect
                             ? `You MUST analyze this URL and assign it to ONE of these exact four categories: "Beauty & Makeup", "Hair Styling", "Fashion & Outfits", or "Nails & Beauty".`
                             : `Generate highly engaging, click-driving Pinterest content for the "${niche}" niche.`;
+
+                        const variationPrompt = isVariation
+                            ? `This is variation #${variationIndex} for this specific URL. Please ensure the title and description are strictly unique and fresh compared to a standard baseline, focusing on a different feature or angle while remaining SEO-optimized.`
+                            : "";
 
                         const categorySchemaField = isAutoDetect
                             ? `\n  "autoCategory": "Exactly ONE of the 4 valid categories defined above",`
@@ -350,15 +378,16 @@ export async function POST(req) {
                         const textPrompt = `
 You are an expert Pinterest marketer. Analyze this destination URL conceptually (you don't need to visit it, just infer from the URL slug if needed): ${url}
 ${nicheInstruction}
+${variationPrompt}
 
 // Return ONLY a valid raw JSON object with no markdown formatting or backticks, with the following schema:
 {${categorySchemaField}
   "title": "The full, original title of the URL content (e.g. 'Stunning Plus-Size Rodeo Outfits for Every Cowgirl')",
-  "shortOverlayTitle": "Extract the core entity/concept for the image text overlay. CRITICAL: If the original title contains words like 'Ideas', 'Looks', 'Trends', 'Styles', or 'Outfit', you MUST KEEP THEM in this overlay title (e.g. 'Short Curly Pixie Hair Ideas' instead of forcing it down to 'Short Curly Pixie'). Max 7 words.",
+  "shortOverlayTitle": "Extract the core entity/concept for the image text overlay. CRITICAL: If the original title contains words like 'Ideas', 'Looks', 'Trends', 'Styles', or 'Outfit', you MUST KEEP THEM in this overlay title. Max 7 words.",
   "description": "A compelling, readable description between 100 and 800 characters. Put your most important keywords and search terms at the VERY BEGINNING. Describe the content pleasantly to grab attention. DO NOT USE ANY HASHTAGS.",
   "keywords": "comma separated list of 5-8 highly searchable SEO keywords",
-  "generatedBoardName": "An intelligent, keyword-rich, and broad descriptive board name (e.g., 'Rodeo Outfits' or 'Plus-Size Outfits' instead of exact-match long sentences). It should be reusable.",
-  "imagePrompt": "A highly detailed, descriptive prompt for an AI image generator to create an aesthetic Pinterest image. Do not include text in the image itself."
+  "generatedBoardName": "An intelligent, keyword-rich, and broad descriptive board name (e.g., 'Rodeo Outfits'). It should be reusable.",
+  "imagePrompt": "A highly detailed, descriptive prompt for an AI image generator to create an aesthetic Pinterest image. Focus on exactly ONE person. Do not include text in the image itself."
 }
 `;
                         const textResult = await textModel.generateContent(textPrompt);
@@ -377,7 +406,7 @@ ${nicheInstruction}
                         const finalImagePrompt = `${textData.imagePrompt} CRITICAL AESTHETIC RULES: ${specificAesthetic} ${specificTips}`;
 
                         // 2. Generate Image using Imagen 3
-                        let finalImageUrl = ''; // fallback to empty string so DataGrid shows the emoji placeholder instead of a broken image
+                        let finalImageUrl = ''; // fallback to empty string
 
                         try {
                             let imageResponseOk = false;
@@ -386,7 +415,7 @@ ${nicheInstruction}
 
                             while (retryCount < 3 && !imageResponseOk) {
                                 try {
-                                    // Current Google AI Studio Imagen 3 REST call approach via fetch with RETRY LOGIC
+                                    // Current Google AI Studio Imagen 3 REST call approach via fetch
                                     const imageResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${effectiveGeminiKey}`, {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
@@ -420,7 +449,6 @@ ${nicheInstruction}
                                 rawBuffer = Buffer.from(rawBase64Image, 'base64');
                             } else {
                                 console.warn(`All Imagen retries failed for ${url}. Using solid color fallback.`);
-                                // Generate a completely reliable mathematical blank canvas instead of fetching external URLs that 403/404
                                 rawBuffer = await sharp({
                                     create: {
                                         width: 1000,
@@ -435,7 +463,7 @@ ${nicheInstruction}
                             // We do this REGARDLESS of whether the AI generated the image or we fell back.
                             const urlMatch = url.match(/(?:\/|-)(\d+)(?:\/|-|$)/) || url.match(/\d+/);
                             const extractedNum = urlMatch ? urlMatch[1] || urlMatch[0] : null;
-                            const prefix = extractedNum ? `${extractedNum}+ ` : '15+ ';
+                            const prefix = extractedNum ? `${extractedNum}+ ` : '';
                             const overlayTitle = `${prefix}${textData.shortOverlayTitle}`.trim();
                             const overlayPngBuffer = await generateTextOverlayBuffer(overlayTitle, resolvedCategory);
 
