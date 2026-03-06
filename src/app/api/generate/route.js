@@ -63,29 +63,11 @@ function drawText(ctx, text, x, y, { fontSize = 84, weight = 'bold', color = '#f
     ctx.restore();
 }
 
-// Draw decorative squares seen in modern Pinterest aesthetics
-function drawDecorativeBoxes(ctx, W, H) {
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-    ctx.lineWidth = 2;
-    // Top-left small box
-    ctx.strokeRect(60, 60, 40, 40);
-    // Bottom-right small box
-    ctx.strokeRect(W - 100, H - 100, 40, 40);
-    // Mid-side decorative squares (floating)
-    ctx.strokeRect(40, H / 2 - 20, 30, 30);
-    ctx.strokeRect(W - 70, H / 2 + 100, 30, 30);
-    ctx.restore();
-}
-
 async function generateTextOverlayBuffer(title, category) {
     const W = 1000, H = 1500;
     const canvas = createCanvas(W, H);
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, W, H); // transparent base
-
-    // Draw decorative boxes on all styles for branding consistency
-    drawDecorativeBoxes(ctx, W, H);
 
     // ── Style 1: Beauty & Makeup ────────────────────────────────────────────
     if (category === 'Beauty & Makeup') {
