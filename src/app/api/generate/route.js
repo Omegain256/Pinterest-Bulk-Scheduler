@@ -316,7 +316,7 @@ export async function POST(req) {
                             : `Generate highly engaging, click-driving Pinterest content for the "${niche}" niche.`;
 
                         const variationPrompt = isVariation
-                            ? `This is variation #${variationIndex} for this specific URL. Please ensure the title and description are strictly unique and fresh compared to a standard baseline, focusing on a different feature or angle while remaining SEO-optimized.`
+                            ? `This is variation #${variationIndex} for this specific URL. CRITICAL: You MUST generate a strictly unique, fresh, and catchy 'shortOverlayTitle' that is different from previous variations (e.g., if one was "Luau Outfit Ideas", this one could be "Trendy Luau Outfit Ideas" or "Summer Luau Looks"). Ensure the title and description are also unique and SEO-optimized.`
                             : "";
 
                         const categorySchemaField = isAutoDetect
