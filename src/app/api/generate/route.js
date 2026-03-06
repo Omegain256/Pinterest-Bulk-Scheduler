@@ -111,6 +111,7 @@ async function generateTextOverlayBuffer(title, category) {
         const arrowY = startY + lines.length * lineH + 50;
         drawText(ctx, '\u2192', W / 2, arrowY, { fontSize: 90, weight: 'normal', shadowBlur: 10, align: 'center' });
         // Subtitle
+        const firstWord = title.split(' ')[0];
         const subtitleNum = firstWord.match(/^\d+/)?.[0];
         const subtitle = subtitleNum ? `${subtitleNum}+ inspirations` : 'See all inspirations';
         ctx.save();
