@@ -9,6 +9,7 @@ import { exportToPinterestCSV } from '@/utils/csvExport';
 export default function Home() {
   const [urls, setUrls] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [geminiKey, setGeminiKey] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPins, setGeneratedPins] = useState([]);
 
@@ -36,7 +37,8 @@ export default function Home() {
         body: JSON.stringify({
           urls: urlList,
           niche: settings.niche,
-          aspectRatio: settings.aspectRatio
+          aspectRatio: settings.aspectRatio,
+          geminiKey: geminiKey.trim()
         })
       });
 
@@ -106,7 +108,8 @@ export default function Home() {
         body: JSON.stringify({
           urls: [pinToRegen.sourceUrl],
           niche: settings.niche,
-          aspectRatio: settings.aspectRatio
+          aspectRatio: settings.aspectRatio,
+          geminiKey: geminiKey.trim()
         })
       });
 
@@ -207,15 +210,25 @@ export default function Home() {
           />
 
           <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', justifyContent: 'flex-end', alignItems: 'center' }}>
-            <div style={{ flex: 1, display: 'flex', gap: '1rem' }}>
-              <input
-                type="password"
-                className="glass-input"
-                style={{ width: '50%', fontSize: '1rem', padding: '1rem 1.5rem', borderRadius: '100px', background: '#ffffff', border: '1px solid var(--surface-border)' }}
-                placeholder="Access Key"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-              />
+            <div style={{ flex: 1, display: 'flex', gap: '1rem', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <input
+                  type="password"
+                  className="glass-input"
+                  style={{ flex: 1, fontSize: '1rem', padding: '1rem 1.5rem', borderRadius: '100px', background: '#ffffff', border: '1px solid var(--surface-border)' }}
+                  placeholder="Tool Access Key"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                />
+                <input
+                  type="password"
+                  className="glass-input"
+                  style={{ flex: 1, fontSize: '1rem', padding: '1rem 1.5rem', borderRadius: '100px', background: '#ffffff', border: '1px solid var(--surface-border)' }}
+                  placeholder="Your Gemini API Key"
+                  value={geminiKey}
+                  onChange={(e) => setGeminiKey(e.target.value)}
+                />
+              </div>
               <select
                 className="glass-input"
                 style={{ width: '100%', fontSize: '1rem', padding: '1rem 1.5rem', borderRadius: '100px', background: '#ffffff', appearance: 'none', cursor: 'pointer' }}

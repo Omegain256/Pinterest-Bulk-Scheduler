@@ -11,7 +11,7 @@ GlobalFonts.register(interBoldBuffer, 'Inter');
 console.log('[Canvas] Font registered. Families count:', GlobalFonts.families?.length ?? 'N/A');
 
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+// genAI will be initialized dynamically per-request to support user-provided keys
 
 // ─── Canvas Overlay Engine ───────────────────────────────────────────────────
 // Draws niche-specific Pinterest text overlays using @napi-rs/canvas.
@@ -293,17 +293,20 @@ export async function POST(req) {
             return NextResponse.json({ error: 'Unauthorized: Invalid API Key' }, { status: 401 });
         }
 
-        const { urls, niche, aspectRatio } = await req.json();
+        const { urls, niche, aspectRatio, geminiKey } = await req.json();
+
+        const effectiveGeminiKey = geminiKey || process.env.GEMINI_API_KEY;
 
         if (!urls || urls.length === 0) {
             return NextResponse.json({ error: 'No URLs provided' }, { status: 400 });
         }
 
-        if (!process.env.GEMINI_API_KEY || !process.env.IMGBB_API_KEY) {
-            return NextResponse.json({ error: 'API Keys are missing in .env.local' }, { status: 500 });
+        if (!effectiveGeminiKey || !process.env.IMGBB_API_KEY) {
+            return NextResponse.json({ error: 'API Keys are missing (Gemini or ImgBB)' }, { status: 500 });
         }
 
-        // Initialize Gemini models
+        // Initialize Gemini models with the effective key
+        const genAI = new GoogleGenerativeAI(effectiveGeminiKey);
         // Using gemini-2.5-flash (confirmed working on this key)
         // Using imagen-4.0-fast-generate-001 (confirmed working on this key)
         const textModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
@@ -384,7 +387,7 @@ ${nicheInstruction}
                             while (retryCount < 3 && !imageResponseOk) {
                                 try {
                                     // Current Google AI Studio Imagen 3 REST call approach via fetch with RETRY LOGIC
-                                    const imageResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${process.env.GEMINI_API_KEY}`, {
+                                    const imageResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${effectiveGeminiKey}`, {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({
