@@ -80,20 +80,11 @@ async function generateTextOverlayBuffer(title, category) {
 
     // ── Style 2: Hair Styling ───────────────────────────────────────────────
     else if (category === 'Hair Styling') {
+        drawGradient(ctx, W, H, H * 0.6, 0.7);
         const lines = wrapWords(title, 24).slice(0, 3);
-        const lineH = 72;
-        const pad = 36;
-        const boxW = 880;
-        const boxH = lines.length * lineH + pad * 2;
-        const boxX = (W - boxW) / 2;
-        const boxY = H - boxH - 65;
-        // White box with border
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(boxX, boxY, boxW, boxH);
-        ctx.strokeStyle = '#111111';
-        ctx.lineWidth = 10;
-        ctx.strokeRect(boxX + 5, boxY + 5, boxW - 10, boxH - 10);
-        lines.forEach((l, i) => drawText(ctx, l, W / 2, boxY + pad + (i + 0.82) * lineH, { fontSize: 64, weight: '700', color: '#111111', shadowBlur: 0, shadowOpacity: 0, align: 'center' }));
+        const lineH = 85;
+        const startY = H - 150 - (lines.length - 1) * lineH;
+        lines.forEach((l, i) => drawText(ctx, l, W / 2, startY + i * lineH, { fontSize: 72, weight: '700', align: 'center', strokeWidth: 3 }));
     }
 
     // ── Style 3: Fashion & Outfits ──────────────────────────────────────────
@@ -107,31 +98,6 @@ async function generateTextOverlayBuffer(title, category) {
         const midY = 660;
         const startY = midY - ((lines.length - 1) * lineH) / 2;
         lines.forEach((l, i) => drawText(ctx, l, W / 2, startY + i * lineH, { fontSize, weight: '900', shadowBlur: 12, strokeWidth: 5, align: 'center' }));
-        // Arrow
-        const arrowY = startY + lines.length * lineH + 50;
-        drawText(ctx, '\u2192', W / 2, arrowY, { fontSize: 90, weight: 'normal', shadowBlur: 10, align: 'center' });
-        // Subtitle
-        const firstWord = title.split(' ')[0];
-        const subtitleNum = firstWord.match(/^\d+/)?.[0];
-        const subtitle = subtitleNum ? `${subtitleNum}+ inspirations` : 'See all inspirations';
-        ctx.save();
-        ctx.font = '300 45px Inter, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = 'rgba(255,255,255,0.85)';
-        ctx.fillText(subtitle, W / 2, H - 48);
-        ctx.restore();
-        // Sparkle decorations
-        [[875, midY - 230], [125, midY + 40], [865, midY + 200], [120, midY - 150]]
-            .forEach(([sx, sy]) => {
-                ctx.save();
-                ctx.font = '46px Inter, sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillStyle = 'rgba(255,255,255,0.88)';
-                ctx.shadowColor = 'rgba(0,0,0,0.5)';
-                ctx.shadowBlur = 6;
-                ctx.fillText('\u2726', sx, sy);
-                ctx.restore();
-            });
     }
 
     // ── Style 4: Nails & Beauty ─────────────────────────────────────────────
