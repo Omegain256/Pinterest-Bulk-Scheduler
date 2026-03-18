@@ -69,6 +69,52 @@ function drawText(ctx, text, x, y, { fontSize = 84, weight = 'bold', color = '#f
     ctx.restore();
 }
 
+function drawSparkle(ctx, x, y, size) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.beginPath();
+    for (let i = 0; i < 4; i++) {
+        ctx.rotate(Math.PI / 2);
+        ctx.quadraticCurveTo(0, 0, size, 0);
+        ctx.quadraticCurveTo(0, 0, 0, size);
+    }
+    ctx.fillStyle = '#FFD700';
+    ctx.fill();
+    ctx.restore();
+}
+
+function drawArrowShape(ctx, x, y, size) {
+    ctx.save();
+    ctx.translate(x, y);
+    
+    // Define the arrow path (pointing right)
+    function arrowPath(context) {
+        context.beginPath();
+        context.moveTo(-size * 0.8, -size * 0.25);
+        context.lineTo(size * 0.2, -size * 0.25);
+        context.lineTo(size * 0.2, -size * 0.6);
+        context.lineTo(size * 1.1, 0);
+        context.lineTo(size * 0.2, size * 0.6);
+        context.lineTo(size * 0.2, size * 0.25);
+        context.lineTo(-size * 0.8, size * 0.25);
+        context.closePath();
+    }
+
+    // Shadow/Outline
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 14;
+    arrowPath(ctx);
+    ctx.stroke();
+
+    // Fill
+    ctx.fillStyle = '#ffffff';
+    arrowPath(ctx);
+    ctx.fill();
+    
+    ctx.restore();
+}
+
 async function generateTextOverlayBuffer(title, category) {
     const W = 1000, H = 1500;
     const canvas = createCanvas(W, H);
@@ -81,12 +127,10 @@ async function generateTextOverlayBuffer(title, category) {
     if (words.length <= 2) {
         lines.push(title);
     } else if (words.length <= 4) {
-        // e.g. "15 Work Conference Outfits" -> "15 Work", "Conference", "Outfits"
         lines.push(words.slice(0, words.length - 2).join(' '));
         lines.push(words[words.length - 2]);
         lines.push(words[words.length - 1]);
     } else {
-        // Use wrapWords for longer titles
         lines.push(...wrapWords(title, 14).slice(0, 3));
     }
 
@@ -97,16 +141,14 @@ async function generateTextOverlayBuffer(title, category) {
 
     // ── Draw Sparkles (Background) ──────────────────────────────────────────
     const sparkles = [
-        { x: 260, y: startY - 40 },
-        { x: 860, y: startY + 60 },
-        { x: 200, y: startY + 280 },
-        { x: 740, y: startY + 360 },
-        { x: 120, y: startY + 550 },
-        { x: 920, y: startY + 120 }
+        { x: 260, y: startY - 40, size: 35 },
+        { x: 860, y: startY + 60, size: 25 },
+        { x: 200, y: startY + 280, size: 30 },
+        { x: 740, y: startY + 360, size: 40 },
+        { x: 120, y: startY + 550, size: 20 },
+        { x: 920, y: startY + 120, size: 30 }
     ];
-    sparkles.forEach(s => {
-        drawText(ctx, '✨', s.x, s.y, { fontSize: 60, weight: '900', color: '#FFD700', strokeWidth: 0 });
-    });
+    sparkles.forEach(s => drawSparkle(ctx, s.x, s.y, s.size));
 
     // ── Draw Main Text ──────────────────────────────────────────────────────
     lines.forEach((line, i) => {
@@ -121,13 +163,7 @@ async function generateTextOverlayBuffer(title, category) {
 
     // ── Draw Arrow ──────────────────────────────────────────────────────────
     const arrowY = startY + lines.length * lineH + 60;
-    drawText(ctx, '→', W / 2, arrowY, {
-        fontSize: 140,
-        weight: '900',
-        strokeWidth: 8,
-        strokeColor: '#000000',
-        align: 'center'
-    });
+    drawArrowShape(ctx, W / 2, arrowY, 60);
 
     return canvas.toBuffer('image/png');
 }
