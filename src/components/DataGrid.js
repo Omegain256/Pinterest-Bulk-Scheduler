@@ -3,13 +3,20 @@
 import { useState } from 'react';
 import { FiEdit2, FiCheck, FiRefreshCw } from 'react-icons/fi';
 
-export default function DataGrid({ pins, onUpdate, onRegenerate }) {
+export default function DataGrid({ pins, onUpdate, onRegenerate, existingBoards = [] }) {
     const [editingId, setEditingId] = useState(null);
 
     if (!pins || pins.length === 0) return null;
 
     return (
         <div className="glass-panel" style={{ overflowX: 'auto', borderRadius: 'var(--radius-lg)' }}>
+            {/* Datalist for board name autocomplete */}
+            <datalist id="existing-boards-list">
+                {existingBoards.map((board, idx) => (
+                    <option key={idx} value={board} />
+                ))}
+            </datalist>
+
             <table style={{
                 width: '100%',
                 borderCollapse: 'collapse',
@@ -106,6 +113,7 @@ export default function DataGrid({ pins, onUpdate, onRegenerate }) {
                                 {editingId === pin.id ? (
                                     <input
                                         type="text"
+                                        list="existing-boards-list"
                                         className="glass-input"
                                         style={{ width: '100%', fontSize: '0.875rem' }}
                                         value={pin.boardName}

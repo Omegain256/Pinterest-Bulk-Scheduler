@@ -43,21 +43,27 @@ function drawGradient(ctx, w, h, fromY, opacity) {
 }
 
 // Draw bold text with drop shadow
-function drawText(ctx, text, x, y, { fontSize = 84, weight = 'bold', color = '#ffffff', shadowBlur = 14, shadowOpacity = 0.9, strokeWidth = 0, align = 'left' } = {}) {
+function drawText(ctx, text, x, y, { fontSize = 84, weight = 'bold', color = '#ffffff', strokeColor = 'rgba(0,0,0,0.9)', shadowBlur = 0, shadowOpacity = 0, strokeWidth = 0, align = 'center' } = {}) {
     ctx.save();
-    // Always specify 'Inter' explicitly — the font we registered from public/fonts/Inter-Bold.ttf
     ctx.font = `${weight} ${fontSize}px Inter, sans-serif`;
     ctx.textAlign = align;
-    ctx.shadowColor = `rgba(0,0,0,${shadowOpacity})`;
-    ctx.shadowBlur = shadowBlur;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 4;
+    ctx.textBaseline = 'middle';
+    
+    if (shadowBlur > 0) {
+        ctx.shadowColor = `rgba(0,0,0,${shadowOpacity})`;
+        ctx.shadowBlur = shadowBlur;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 4;
+    }
+
     if (strokeWidth > 0) {
-        ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+        ctx.strokeStyle = strokeColor;
         ctx.lineWidth = strokeWidth * 2;
         ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
         ctx.strokeText(text, x, y);
     }
+    
     ctx.fillStyle = color;
     ctx.fillText(text, x, y);
     ctx.restore();
@@ -67,65 +73,61 @@ async function generateTextOverlayBuffer(title, category) {
     const W = 1000, H = 1500;
     const canvas = createCanvas(W, H);
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, W, H); // transparent base
+    ctx.clearRect(0, 0, W, H);
 
-    // ── Style 1: Beauty & Makeup ────────────────────────────────────────────
-    if (category === 'Beauty & Makeup') {
-        drawGradient(ctx, W, H, H * 0.54, 0.72);
-        const lines = wrapWords(title, 16).slice(0, 3);
-        const lineH = 110;
-        const startY = H - 115 - (lines.length - 1) * lineH;
-        lines.forEach((l, i) => drawText(ctx, l, 60, startY + i * lineH, { fontSize: 100, weight: '900', shadowBlur: 18, strokeWidth: 4 }));
+    // ── Pre-process Text ────────────────────────────────────────────────────
+    const words = title.split(' ');
+    const lines = [];
+    if (words.length <= 2) {
+        lines.push(title);
+    } else if (words.length <= 4) {
+        // e.g. "15 Work Conference Outfits" -> "15 Work", "Conference", "Outfits"
+        lines.push(words.slice(0, words.length - 2).join(' '));
+        lines.push(words[words.length - 2]);
+        lines.push(words[words.length - 1]);
+    } else {
+        // Use wrapWords for longer titles
+        lines.push(...wrapWords(title, 14).slice(0, 3));
     }
 
-    // ── Style 2: Hair Styling ───────────────────────────────────────────────
-    else if (category === 'Hair Styling') {
-        drawGradient(ctx, W, H, H * 0.6, 0.7);
-        const lines = wrapWords(title, 24).slice(0, 3);
-        const lineH = 85;
-        const startY = H - 150 - (lines.length - 1) * lineH;
-        lines.forEach((l, i) => drawText(ctx, l, W / 2, startY + i * lineH, { fontSize: 72, weight: '700', align: 'center', strokeWidth: 3 }));
-    }
+    // ── Layout Constants ────────────────────────────────────────────────────
+    const fontSize = 110;
+    const lineH = 135;
+    const startY = 880 - ((lines.length - 1) * lineH) / 2;
 
-    // ── Style 3: Fashion & Outfits ──────────────────────────────────────────
-    else if (category === 'Fashion & Outfits') {
-        const upper = title.toUpperCase();
-        const longestWordLen = Math.max(...upper.split(' ').map(w => w.length));
-        let fontSize = 118;
-        if (longestWordLen > 6) fontSize = Math.max(70, 118 - ((longestWordLen - 6) * 10));
-        const lines = wrapWords(upper, 14).slice(0, 4);
-        const lineH = Math.round(fontSize * 1.1);
-        const midY = 660;
-        const startY = midY - ((lines.length - 1) * lineH) / 2;
-        lines.forEach((l, i) => drawText(ctx, l, W / 2, startY + i * lineH, { fontSize, weight: '900', shadowBlur: 12, strokeWidth: 5, align: 'center' }));
-    }
+    // ── Draw Sparkles (Background) ──────────────────────────────────────────
+    const sparkles = [
+        { x: 260, y: startY - 40 },
+        { x: 860, y: startY + 60 },
+        { x: 200, y: startY + 280 },
+        { x: 740, y: startY + 360 },
+        { x: 120, y: startY + 550 },
+        { x: 920, y: startY + 120 }
+    ];
+    sparkles.forEach(s => {
+        drawText(ctx, '✨', s.x, s.y, { fontSize: 60, weight: '900', color: '#FFD700', strokeWidth: 0 });
+    });
 
-    // ── Style 4: Nails & Beauty ─────────────────────────────────────────────
-    else if (category === 'Nails & Beauty') {
-        drawGradient(ctx, W, H, H * 0.58, 0.68);
-        const words = title.split(' ');
-        const bigWord = words[0] || '';
-        const restUpper = words.slice(1).join(' ').toUpperCase();
-        const restLines = wrapWords(restUpper, 13).slice(0, 3);
-        drawText(ctx, bigWord, 75, 1060, { fontSize: 170, weight: '900', shadowBlur: 18, strokeWidth: 6 });
-        restLines.forEach((l, i) => {
-            const isFirst = i === 0;
-            drawText(ctx, l, 75, isFirst ? 1150 : 1150 + 75 + (i - 1) * 112, {
-                fontSize: isFirst ? 62 : 108,
-                weight: isFirst ? '400' : '700',
-                shadowBlur: 14,
-                strokeWidth: isFirst ? 2 : 4
-            });
+    // ── Draw Main Text ──────────────────────────────────────────────────────
+    lines.forEach((line, i) => {
+        drawText(ctx, line, W / 2, startY + i * lineH, {
+            fontSize,
+            weight: '900',
+            strokeWidth: 10,
+            strokeColor: '#000000',
+            align: 'center'
         });
-    }
+    });
 
-    // ── Fallback ────────────────────────────────────────────────────────────
-    else {
-        drawGradient(ctx, W, H, H * 0.42, 0.87);
-        const lines = wrapWords(title, 20).slice(0, 3);
-        const startY = H - 120 - (lines.length - 1) * 95;
-        lines.forEach((l, i) => drawText(ctx, l, 70, startY + i * 95, { fontSize: 84, weight: '900', strokeWidth: 4 }));
-    }
+    // ── Draw Arrow ──────────────────────────────────────────────────────────
+    const arrowY = startY + lines.length * lineH + 60;
+    drawText(ctx, '→', W / 2, arrowY, {
+        fontSize: 140,
+        weight: '900',
+        strokeWidth: 8,
+        strokeColor: '#000000',
+        align: 'center'
+    });
 
     return canvas.toBuffer('image/png');
 }
@@ -260,7 +262,7 @@ export async function POST(req) {
             return NextResponse.json({ error: 'Unauthorized: Invalid API Key' }, { status: 401 });
         }
 
-        const { urls, niche, aspectRatio, geminiKey } = await req.json();
+        const { urls, niche, aspectRatio, geminiKey, existingBoards } = await req.json();
 
         const effectiveGeminiKey = geminiKey || process.env.GEMINI_API_KEY;
 
@@ -323,11 +325,17 @@ export async function POST(req) {
                             ? `\n  "autoCategory": "Exactly ONE of the 4 valid categories defined above",`
                             : "";
 
+                        // Inject existing boards if provided
+                        const boardsInstruction = existingBoards && existingBoards.length > 0
+                            ? `\nEXISTING BOARDS: ${existingBoards.join(', ')}\nCRITICAL: If one of these existing boards is a suitable match for the content, you MUST use its EXACT name for "generatedBoardName". Only generate a new board name if none of the existing boards are relevant.`
+                            : "Generate an intelligent, keyword-rich, and broad descriptive board name (e.g., 'Rodeo Outfits'). It should be reusable.";
+
                         // 1. Generate Text (Title, Description, Keywords, Image Prompt)
                         const textPrompt = `
 You are an expert Pinterest marketer. Analyze this destination URL conceptually (you don't need to visit it, just infer from the URL slug if needed): ${url}
 ${nicheInstruction}
 ${variationPrompt}
+${boardsInstruction}
 
 // Return ONLY a valid raw JSON object with no markdown formatting or backticks, with the following schema:
 {${categorySchemaField}
@@ -335,7 +343,7 @@ ${variationPrompt}
   "shortOverlayTitle": "Extract the core entity/concept for the image text overlay. CRITICAL: If the original title contains words like 'Ideas', 'Looks', 'Trends', 'Styles', or 'Outfit', you MUST KEEP THEM in this overlay title. Max 7 words.",
   "description": "A compelling, readable description between 100 and 800 characters. Put your most important keywords and search terms at the VERY BEGINNING. Describe the content pleasantly to grab attention. DO NOT USE ANY HASHTAGS.",
   "keywords": "comma separated list of 5-8 highly searchable SEO keywords",
-  "generatedBoardName": "An intelligent, keyword-rich, and broad descriptive board name (e.g., 'Rodeo Outfits'). It should be reusable.",
+  "generatedBoardName": "The Pinterest board name to use (either from the EXISTING BOARDS list or a new high-quality name)",
   "imagePrompt": "A highly detailed, descriptive prompt for an AI image generator to create an aesthetic Pinterest image. Focus on exactly ONE person. Do not include text in the image itself."
 }
 `;
@@ -412,7 +420,7 @@ ${variationPrompt}
                             // We do this REGARDLESS of whether the AI generated the image or we fell back.
                             const urlMatch = url.match(/(?:\/|-)(\d+)(?:\/|-|$)/) || url.match(/\d+/);
                             const extractedNum = urlMatch ? urlMatch[1] || urlMatch[0] : null;
-                            const prefix = extractedNum ? `${extractedNum}+ ` : '';
+                            const prefix = extractedNum ? `${extractedNum} ` : '';
                             const overlayTitle = `${prefix}${textData.shortOverlayTitle}`.trim();
                             const overlayPngBuffer = await generateTextOverlayBuffer(overlayTitle, resolvedCategory);
 

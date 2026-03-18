@@ -10,6 +10,7 @@ export default function Home() {
   const [urls, setUrls] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
+  const [existingBoards, setExistingBoards] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPins, setGeneratedPins] = useState([]);
 
@@ -18,65 +19,97 @@ export default function Home() {
     aspectRatio: '9:16',
   });
 
+  // Load saved keys and boards from localStorage on mount
+  useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedApiKey = localStorage.getItem('pinterest_tool_api_key');
+      const savedGeminiKey = localStorage.getItem('pinterest_tool_gemini_key');
+      const savedBoards = localStorage.getItem('pinterest_tool_existing_boards');
+      if (savedApiKey) setApiKey(savedApiKey);
+      if (savedGeminiKey) setGeminiKey(savedGeminiKey);
+      if (savedBoards) setExistingBoards(savedBoards);
+    }
+  });
+
   const handleGenerate = async () => {
     if (!urls.trim()) return;
+
+    // Save to localStorage
+    localStorage.setItem('pinterest_tool_api_key', apiKey.trim());
+    localStorage.setItem('pinterest_tool_gemini_key', geminiKey.trim());
+    localStorage.setItem('pinterest_tool_existing_boards', existingBoards.trim());
+
     setIsGenerating(true);
+
+    const boardList = existingBoards.split('\n').map(b => b.trim()).filter(b => b.length > 0);
 
     // Split URLs by newline
     const urlList = urls.split('\n').filter(url => url.trim().length > 0);
-
     setGeneratedPins([]); // Clear previous results
 
+    // Chunk size (e.g., 5 URLs per request to avoid Vercel timeouts and rate limits)
+    const CHUNK_SIZE = 5;
+    const chunks = [];
+    for (let i = 0; i < urlList.length; i += CHUNK_SIZE) {
+      chunks.push(urlList.slice(i, i + CHUNK_SIZE));
+    }
+
     try {
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey.trim()
-        },
-        body: JSON.stringify({
-          urls: urlList,
-          niche: settings.niche,
-          aspectRatio: settings.aspectRatio,
-          geminiKey: geminiKey.trim()
-        })
-      });
+      for (const chunk of chunks) {
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey.trim()
+          },
+          body: JSON.stringify({
+            urls: chunk,
+            niche: settings.niche,
+            aspectRatio: settings.aspectRatio,
+            geminiKey: geminiKey.trim(),
+            existingBoards: boardList
+          })
+        });
 
-      if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}));
-        alert("Failed to generate pins: " + (errJson.error || "Unknown error"));
-        setIsGenerating(false);
-        return;
-      }
+        if (!response.ok) {
+          const errJson = await response.json().catch(() => ({}));
+          console.error("Batch failed:", errJson.error);
+          // Don't stop the whole process if one batch fails, just alert
+          continue;
+        }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let streamDone = false;
-      let buffer = "";
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let streamDone = false;
+        let buffer = "";
 
-      while (!streamDone) {
-        const { value, done } = await reader.read();
-        streamDone = done;
+        while (!streamDone) {
+          const { value, done } = await reader.read();
+          streamDone = done;
 
-        if (value) {
-          buffer += decoder.decode(value, { stream: true });
-          const events = buffer.split('\n\n');
-          buffer = events.pop() || ""; // Keep any incomplete event string
+          if (value) {
+            buffer += decoder.decode(value, { stream: true });
+            const events = buffer.split('\n\n');
+            buffer = events.pop() || "";
 
-          for (const event of events) {
-            if (event.startsWith('data: ')) {
-              const dataStr = event.substring(6);
-              try {
-                const pin = JSON.parse(dataStr);
-                setGeneratedPins(prev => [...prev, pin]);
-              } catch (e) {
-                console.error("Failed to parse incoming pin stream:", e);
+            for (const event of events) {
+              if (event.startsWith('data: ')) {
+                const dataStr = event.substring(6);
+                try {
+                  const pin = JSON.parse(dataStr);
+                  setGeneratedPins(prev => [...prev, pin]);
+                } catch (e) {
+                  console.error("Failed to parse incoming pin stream:", e);
+                }
               }
             }
           }
         }
+        // Small delay between chunks to respect rate limits if needed
+        if (chunks.indexOf(chunk) < chunks.length - 1) {
+          await new Promise(r => setTimeout(r, 1000));
+        }
       }
-
     } catch (error) {
       console.error("Generation error:", error);
       alert("An error occurred during generation.");
@@ -98,6 +131,8 @@ export default function Home() {
     // Mark as regenerating to show loading spinner on the button
     setGeneratedPins(prev => prev.map(p => p.id === id ? { ...p, isRegenerating: true } : p));
 
+    const boardList = existingBoards.split('\n').map(b => b.trim()).filter(b => b.length > 0);
+
     try {
       const response = await fetch('/api/generate', {
         method: 'POST',
@@ -109,7 +144,8 @@ export default function Home() {
           urls: [pinToRegen.sourceUrl],
           niche: settings.niche,
           aspectRatio: settings.aspectRatio,
-          geminiKey: geminiKey.trim()
+          geminiKey: geminiKey.trim(),
+          existingBoards: boardList
         })
       });
 
@@ -161,6 +197,8 @@ export default function Home() {
     }
   };
 
+  const boardList = existingBoards.split('\n').map(b => b.trim()).filter(b => b.length > 0);
+
   return (
     <main className="animate-fade-in" style={{ padding: '4rem 2rem', maxWidth: '1600px', margin: '0 auto' }}>
       <header className="flex-col items-center" style={{ marginBottom: '3rem', textAlign: 'center', maxWidth: '800px', margin: '0 auto 3rem auto' }}>
@@ -203,10 +241,21 @@ export default function Home() {
           </h2>
           <textarea
             className="glass-input"
-            style={{ width: '100%', minHeight: '180px', resize: 'vertical', fontSize: '1.1rem', border: '1px solid var(--surface-border)', background: '#fafafc' }}
+            style={{ width: '100%', minHeight: '180px', resize: 'vertical', fontSize: '1.1rem', border: '1px solid var(--surface-border)', background: '#fafafc', marginBottom: '1.5rem' }}
             placeholder="https://example.com/blog/post-1&#10;https://example.com/product/item-2"
             value={urls}
             onChange={(e) => setUrls(e.target.value)}
+          />
+
+          <h2 className="flex items-center gap-2" style={{ fontSize: '1.1rem', marginBottom: '1rem', justifyContent: 'center', color: 'var(--text-muted)' }}>
+            <FiSettings /> Existing Pinterest Boards (one per line)
+          </h2>
+          <textarea
+            className="glass-input"
+            style={{ width: '100%', minHeight: '120px', resize: 'vertical', fontSize: '1rem', border: '1px solid var(--surface-border)', background: '#fafafc' }}
+            placeholder="Style Inspiration&#10;Beauty Tips&#10;Home Decor"
+            value={existingBoards}
+            onChange={(e) => setExistingBoards(e.target.value)}
           />
 
           <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', justifyContent: 'flex-end', alignItems: 'center' }}>
@@ -272,7 +321,7 @@ export default function Home() {
               <FiDownload /> Export CSV
             </button>
           </div>
-          <DataGrid pins={generatedPins} onUpdate={handleUpdatePin} onRegenerate={handleRegenerate} />
+          <DataGrid pins={generatedPins} onUpdate={handleUpdatePin} onRegenerate={handleRegenerate} existingBoards={boardList} />
 
           <div style={{ marginTop: '2rem', borderTop: '1px solid var(--surface-border)', paddingTop: '1.5rem' }}>
             <SchedulingTools
