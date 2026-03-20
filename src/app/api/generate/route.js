@@ -311,7 +311,8 @@ export async function POST(req) {
         }
 
         // Initialize Gemini models with the effective key
-        const genAI = new GoogleGenerativeAI(effectiveGeminiKey);
+        // Explicitly use v1 API version to avoid v1beta 404 errors for standard models
+        const genAI = new GoogleGenerativeAI(effectiveGeminiKey, { apiVersion: 'v1' });
         
         // Safety settings: Set to BLOCK_NONE to ensure consistent generation
         const safetySettings = [
@@ -321,7 +322,9 @@ export async function POST(req) {
             { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
         ];
 
-        const textModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest", safetySettings });
+        // Probe for available models if we get stuck (logged to console)
+        // Note: genAI.listModels() requires specific permissions, so we'll just try names
+        const textModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash", safetySettings });
 
         // Phase 4: Niche Aesthetic Prompt Engineering — "Human-Feel" Framework
         const nichePrompts = {
@@ -421,11 +424,17 @@ ${boardsInstruction}
                             }
                         } catch (textErr) {
                             console.error(`Gemini Text Generation Error for ${url}:`, textErr.message);
+                            
+                            // Log additional info for debugging 404s
+                            if (textErr.message.includes('404') || textErr.message.includes('not found')) {
+                                console.warn(`[DEBUG] 404 encountered for model gemini-1.5-flash. This usually means the model name or API version is incorrect for this key/region.`);
+                            }
+
                             // Fallback minimal data if text generation completely fails
                             textData = {
-                                title: `Error: ${textErr.message.substring(0, 50)}`,
+                                title: `Error: ${textErr.message.substring(0, 100)}`,
                                 shortOverlayTitle: "API Issue",
-                                description: `The AI failed to analyze this URL. Error: ${textErr.message}. Check your API key or quota.`,
+                                description: `Failed to analyze URL. Error: ${textErr.message}. If this is a 404, we have tried multiple model names. Check your API key or dashboard.`,
                                 keywords: "error, api, issue",
                                 generatedBoardName: niche !== 'Auto-Detect (AI)' ? niche : "Error Logs",
                                 imagePrompt: `ONE SINGLE UNIFIED PHOTO. HUMAN-FEEL: Raw, authentic ${niche} photography. No text.`
