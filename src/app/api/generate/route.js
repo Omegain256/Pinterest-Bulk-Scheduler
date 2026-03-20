@@ -378,50 +378,57 @@ ${boardsInstruction}
   "imagePrompt": "A highly detailed image prompt. ONE SINGLE UNIFIED PHOTO. NO Grid, NO Collage. HUMAN-FEEL: Raw, authentic, film grain, unedited influencer look. Focus on ONE person. NO text."
 }
 `;
-                            // REST API Generation (v1beta Alignment Fix)
-                            const REST_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${effectiveGeminiKey}`;
-                            
-                            const restResponse = await fetch(REST_URL, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    contents: [{ parts: [{ text: textPrompt }] }]
-                                })
-                            });
+                            // Phase 1: Smart Text Generation Fallback Chain
+                            const modelsToTry = [
+                                { v: 'v1', m: 'gemini-1.5-flash' },
+                                { v: 'v1beta', m: 'gemini-1.5-flash' },
+                                { v: 'v1', m: 'gemini-1.5-pro' },
+                                { v: 'v1beta', m: 'gemini-2.0-flash' }
+                            ];
 
-                            if (!restResponse.ok) {
-                                const errorText = await restResponse.text();
-                                throw new Error(`REST API Error (${restResponse.status}): ${errorText}`);
+                            let lastError = null;
+                            let success = false;
+
+                            for (const modelInfo of modelsToTry) {
+                                try {
+                                    const REST_URL = `https://generativelanguage.googleapis.com/${modelInfo.v}/models/${modelInfo.m}:generateContent?key=${effectiveGeminiKey}`;
+                                    console.log(`[RETRY] Attempting ${modelInfo.v}/${modelInfo.m}...`);
+                                    
+                                    const restResponse = await fetch(REST_URL, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            contents: [{ parts: [{ text: textPrompt }] }]
+                                        })
+                                    });
+
+                                    if (!restResponse.ok) {
+                                        const errorMsg = await restResponse.text();
+                                        throw new Error(`(${restResponse.status}): ${errorMsg}`);
+                                    }
+
+                                    const resultJson = await restResponse.json();
+                                    if (resultJson.candidates && resultJson.candidates.length > 0) {
+                                        const generatedText = resultJson.candidates[0].content.parts[0].text.trim();
+                                        const cleanJsonStr = generatedText.replace(/^```json/i, '').replace(/```$/g, '').trim();
+                                        textData = JSON.parse(cleanJsonStr);
+                                        success = true;
+                                        console.log(`[SUCCESS] Gemini ${modelInfo.m} worked!`);
+                                        break;
+                                    }
+                                } catch (err) {
+                                    console.warn(`[FAIL] Gemini ${modelInfo.m} failed: ${err.message.substring(0, 100)}`);
+                                    lastError = err;
+                                }
                             }
 
-                            const resultJson = await restResponse.json();
-                            
-                            if (!resultJson.candidates || resultJson.candidates.length === 0) {
-                                throw new Error('No candidates returned from REST API.');
+                            if (!success) {
+                                throw lastError || new Error('All Gemini models failed in fallback chain.');
                             }
 
-                            const mainCandidate = resultJson.candidates[0];
-                            const generatedText = mainCandidate.content.parts[0].text.trim();
-                            
-                            // Clean response just in case
-                            const cleanJsonStr = generatedText.replace(/^```json/i, '').replace(/```$/g, '').trim();
-                            console.log(`[DEBUG] Gemini REST Cleaned JSON:`, cleanJsonStr.substring(0, 100) + '...');
-                            
-                            try {
-                                textData = JSON.parse(cleanJsonStr);
-                            } catch (parseErr) {
-                                console.error(`JSON Parse Error:`, parseErr.message);
-                                console.error(`Full Raw Response:`, generatedText);
-                                throw new Error('Failed to parse REST response as JSON.');
-                            }
                         } catch (textErr) {
                             console.error(`Gemini Text Generation Error for ${url}:`, textErr.message);
                             
-                            // Log additional info for debugging 404s
-                            if (textErr.message.includes('404') || textErr.message.includes('not found')) {
-                                console.warn(`[DEBUG] 404 encountered. Key might not have access to this model name.`);
-                            }
-
                             // Fallback minimal data if text generation completely fails
                             textData = {
                                 title: `Error: ${textErr.message.substring(0, 1000)}`,
