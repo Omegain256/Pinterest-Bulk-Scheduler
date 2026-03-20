@@ -464,8 +464,12 @@ ${boardsInstruction}
                                     process.env.GEMINI_API_KEY.trim()
                                 ].filter((v, i, a) => a.indexOf(v) === i); // unique only
 
-                                // Models to try (Verified imagen-4.0 is available)
-                                const imageModels = ['imagen-4.0-generate-001', 'imagen-4.0-fast-generate-001'];
+                                // Models to try (Maximize 170-image quota: Standard, Fast, Ultra)
+                                const imageModels = [
+                                    'imagen-4.0-generate-001', 
+                                    'imagen-4.0-fast-generate-001',
+                                    'imagen-4.0-ultra-generate-001'
+                                ];
 
                                 keyLoop: for (const currentKey of keysToTry) {
                                     for (const imgModel of imageModels) {
