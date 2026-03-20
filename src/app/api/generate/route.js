@@ -312,9 +312,17 @@ export async function POST(req) {
 
         // Initialize Gemini models with the effective key
         const genAI = new GoogleGenerativeAI(effectiveGeminiKey);
-        // Using stable working models
-        const textModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-        const imageModel = genAI.getGenerativeModel({ model: "imagen-3.0-generate-001" });
+        
+        // Safety settings: Set to BLOCK_NONE to ensure consistent generation
+        const safetySettings = [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+        ];
+
+        const textModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash", safetySettings });
+        const imageModel = genAI.getGenerativeModel({ model: "imagen-3.0-generate-001", safetySettings });
 
         // Phase 4: Niche Aesthetic Prompt Engineering — "Human-Feel" Framework
         const nichePrompts = {
@@ -386,16 +394,30 @@ ${boardsInstruction}
 }
 `;
                             const textResult = await textModel.generateContent(textPrompt);
-                            const generatedText = textResult.response.text().trim();
+                            const response = textResult.response;
+                            const candidates = response.candidates;
+                            
+                            if (!candidates || candidates.length === 0) {
+                                console.warn(`No candidates returned for ${url}. Response:`, JSON.stringify(response));
+                                throw new Error('No candidates returned from Gemini.');
+                            }
+
+                            const mainCandidate = candidates[0];
+                            if (mainCandidate.finishReason !== 'STOP') {
+                                console.warn(`Gemini Finish Reason for ${url}: ${mainCandidate.finishReason}. Feedback:`, JSON.stringify(response.promptFeedback));
+                            }
+
+                            const generatedText = response.text().trim();
                             
                             // Clean response just in case it still has markdown
                             const cleanJsonStr = generatedText.replace(/^```json/i, '').replace(/```$/g, '').trim();
+                            console.log(`[DEBUG] Gemini Cleaned JSON for ${url}:`, cleanJsonStr.substring(0, 100) + '...');
                             
                             try {
                                 textData = JSON.parse(cleanJsonStr);
                             } catch (parseErr) {
                                 console.error(`JSON Parse Error for ${url}:`, parseErr.message);
-                                console.error(`Raw Gemini Response:`, generatedText);
+                                console.error(`Full Raw Gemini Response:`, generatedText);
                                 throw new Error('Failed to parse Gemini response as JSON.');
                             }
                         } catch (textErr) {
