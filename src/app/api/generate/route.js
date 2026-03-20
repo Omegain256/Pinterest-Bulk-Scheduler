@@ -299,7 +299,7 @@ export async function POST(req) {
 
         const { urls, niche, aspectRatio, geminiKey, existingBoards } = await req.json();
 
-        const effectiveGeminiKey = geminiKey || process.env.GEMINI_API_KEY;
+        const effectiveGeminiKey = (geminiKey || process.env.GEMINI_API_KEY)?.trim();
 
         if (!urls || urls.length === 0) {
             return NextResponse.json({ error: 'No URLs provided' }, { status: 400 });
@@ -387,11 +387,8 @@ ${boardsInstruction}
                                 body: JSON.stringify({
                                     contents: [{ parts: [{ text: textPrompt }] }],
                                     generationConfig: {
-                                        temperature: 1,
-                                        topK: 40,
-                                        topP: 0.95,
-                                        maxOutputTokens: 8192,
-                                        responseMimeType: "application/json",
+                                        temperature: 0.8,
+                                        maxOutputTokens: 2048,
                                     }
                                 })
                             });
