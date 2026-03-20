@@ -378,18 +378,14 @@ ${boardsInstruction}
   "imagePrompt": "A highly detailed image prompt. ONE SINGLE UNIFIED PHOTO. NO Grid, NO Collage. HUMAN-FEEL: Raw, authentic, film grain, unedited influencer look. Focus on ONE person. NO text."
 }
 `;
-                            // REST API Generation (Permanent Fix for SDK 404s)
-                            const REST_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${effectiveGeminiKey}`;
+                            // REST API Generation (v1beta Alignment Fix)
+                            const REST_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${effectiveGeminiKey}`;
                             
                             const restResponse = await fetch(REST_URL, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
-                                    contents: [{ parts: [{ text: textPrompt }] }],
-                                    generationConfig: {
-                                        temperature: 0.8,
-                                        maxOutputTokens: 2048,
-                                    }
+                                    contents: [{ parts: [{ text: textPrompt }] }]
                                 })
                             });
 
@@ -405,10 +401,6 @@ ${boardsInstruction}
                             }
 
                             const mainCandidate = resultJson.candidates[0];
-                            if (mainCandidate.finishReason !== 'STOP') {
-                                console.warn(`Gemini Finish Reason: ${mainCandidate.finishReason}`);
-                            }
-
                             const generatedText = mainCandidate.content.parts[0].text.trim();
                             
                             // Clean response just in case
@@ -427,14 +419,14 @@ ${boardsInstruction}
                             
                             // Log additional info for debugging 404s
                             if (textErr.message.includes('404') || textErr.message.includes('not found')) {
-                                console.warn(`[DEBUG] 404 encountered for model gemini-1.5-flash. This usually means the model name or API version is incorrect for this key/region.`);
+                                console.warn(`[DEBUG] 404 encountered. Key might not have access to this model name.`);
                             }
 
                             // Fallback minimal data if text generation completely fails
                             textData = {
-                                title: `Error: ${textErr.message.substring(0, 100)}`,
+                                title: `Error: ${textErr.message.substring(0, 1000)}`,
                                 shortOverlayTitle: "API Issue",
-                                description: `Failed to analyze URL. Error: ${textErr.message}. If this is a 404, we have tried multiple model names. Check your API key or dashboard.`,
+                                description: `Failed to analyze URL. Error: ${textErr.message}.`,
                                 keywords: "error, api, issue",
                                 generatedBoardName: niche !== 'Auto-Detect (AI)' ? niche : "Error Logs",
                                 imagePrompt: `ONE SINGLE UNIFIED PHOTO. HUMAN-FEEL: Raw, authentic ${niche} photography. No text.`
