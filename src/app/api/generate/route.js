@@ -379,12 +379,12 @@ ${boardsInstruction}
 }
 `;
                             // Phase 1: Verified Smart Text Generation Fallback Chain
-                            // Probed & confirmed for this key: v1beta/gemini-1.5-flash
+                            // PROBED & CONFIRMED for this key: v1beta/gemini-2.5-flash
                             const modelsToTry = [
-                                { v: 'v1beta', m: 'gemini-1.5-flash' },
-                                { v: 'v1', m: 'gemini-1.5-flash' },
+                                { v: 'v1beta', m: 'gemini-2.5-flash' },
                                 { v: 'v1beta', m: 'gemini-2.0-flash-lite' },
-                                { v: 'v1beta', m: 'gemini-2.0-flash-exp' }
+                                { v: 'v1beta', m: 'gemini-1.5-flash' },
+                                { v: 'v1', m: 'gemini-1.5-flash' }
                             ];
 
                             let lastError = null;
