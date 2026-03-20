@@ -321,7 +321,7 @@ export async function POST(req) {
             { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
         ];
 
-        const textModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash", safetySettings });
+        const textModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest", safetySettings });
 
         // Phase 4: Niche Aesthetic Prompt Engineering — "Human-Feel" Framework
         const nichePrompts = {
