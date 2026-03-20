@@ -366,27 +366,50 @@ export async function POST(req) {
                             : "Generate an intelligent, keyword-rich, and broad descriptive board name (e.g., 'Rodeo Outfits'). It should be reusable.";
 
                         // 1. Generate Text (Title, Description, Keywords, Image Prompt)
-                        const textPrompt = `
+                        let textData;
+                        try {
+                            const textPrompt = `
 You are an expert Pinterest marketer. Analyze this destination URL conceptually: ${url}
+(You don't need to visit it, just infer from the URL slug/name if needed).
 ${nicheInstruction}
 ${variationPrompt}
 ${boardsInstruction}
 
-// Return ONLY a valid raw JSON object with no markdown formatting or backticks, with the following schema:
+// Return ONLY a valid raw JSON object. NO markdown code blocks. NO backticks.
 {${categorySchemaField}
   "title": "The full, original title of the URL content",
-  "shortOverlayTitle": "Extract the core entity/concept for the image text overlay. CRITICAL: Absolutely avoid redundancy. NEVER repeat the same word or year twice. Ensure perfect grammar. If the original title contains words like 'Ideas', 'Looks', 'Trends', 'Styles', or 'Outfit', you MUST KEEP THEM. Max 7 words.",
+  "shortOverlayTitle": "Extract the core entity/concept for the image text overlay. Absolutely avoid redundancy. NEVER repeat the same word or year twice. Ensure perfect grammar. If the original title contains words like 'Ideas', 'Looks', 'Trends', 'Styles', or 'Outfit', you MUST KEEP THEM. Max 7 words.",
   "description": "A compelling, keyword-rich description between 100 and 800 characters. No hashtags.",
   "keywords": "comma separated list of 5-8 SEO keywords",
   "generatedBoardName": "The Pinterest board name to use (either from the EXISTING BOARDS list or a new high-quality name)",
   "imagePrompt": "A highly detailed image prompt. ONE SINGLE UNIFIED PHOTO. NO Grid, NO Collage. HUMAN-FEEL: Raw, authentic, film grain, unedited influencer look. Focus on ONE person. NO text."
 }
 `;
-                        const textResult = await textModel.generateContent(textPrompt);
-                        let generatedText = textResult.response.text();
-                        // Clean the response if it has markdown formatting
-                        const cleanJsonStr = generatedText.replace(/```json/g, '').replace(/```/g, '').trim();
-                        const textData = JSON.parse(cleanJsonStr);
+                            const textResult = await textModel.generateContent(textPrompt);
+                            const generatedText = textResult.response.text().trim();
+                            
+                            // Clean response just in case it still has markdown
+                            const cleanJsonStr = generatedText.replace(/^```json/i, '').replace(/```$/g, '').trim();
+                            
+                            try {
+                                textData = JSON.parse(cleanJsonStr);
+                            } catch (parseErr) {
+                                console.error(`JSON Parse Error for ${url}:`, parseErr.message);
+                                console.error(`Raw Gemini Response:`, generatedText);
+                                throw new Error('Failed to parse Gemini response as JSON.');
+                            }
+                        } catch (textErr) {
+                            console.error(`Gemini Text Generation Error for ${url}:`, textErr.message);
+                            // Fallback minimal data if text generation completely fails
+                            textData = {
+                                title: "Discovery",
+                                shortOverlayTitle: "Trending Ideas",
+                                description: "Explore the latest trends and styles in this carefully curated collection.",
+                                keywords: "style, trends, inspiration",
+                                generatedBoardName: niche !== 'Auto-Detect (AI)' ? niche : "New Discoveries",
+                                imagePrompt: `ONE SINGLE UNIFIED PHOTO. HUMAN-FEEL: Raw, authentic ${niche} photography. No text.`
+                            };
+                        }
 
                         // Dynamically resolve the aesthetic instruction for this specific iteration
                         const resolvedCategory = isAutoDetect ? textData.autoCategory : niche;
