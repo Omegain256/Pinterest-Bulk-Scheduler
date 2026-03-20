@@ -346,7 +346,7 @@ export async function POST(req) {
                             : `Generate highly engaging, click-driving Pinterest content for the "${niche}" niche.`;
 
                         const variationPrompt = isVariation
-                            ? `This is variation #${variationIndex} for this specific URL. CRITICAL: You MUST generate a strictly unique Title and Description. Ensure the 'shortOverlayTitle' is different from previous variations.`
+                            ? `This is variation #${variationIndex} for this specific URL. CRITICAL: You MUST generate a STATEDLY DIFFERENT Title and Description. Use a completely different angle (e.g., if variation #1 used "Outfit Ideas", variation #2 should use "Trending Styles" or "Lookbook"). Ensure the 'shortOverlayTitle' is unique.`
                             : "";
 
                         const categorySchemaField = isAutoDetect
@@ -370,8 +370,8 @@ ${boardsInstruction}
 
 // Return ONLY a valid raw JSON object. NO markdown code blocks. NO backticks.
 {${categorySchemaField}
-  "title": "The full, original title of the URL content",
-  "shortOverlayTitle": "Extract the core entity/concept for the image text overlay. Absolutely avoid redundancy. NEVER repeat the same word or year twice. Ensure perfect grammar. If the original title contains words like 'Ideas', 'Looks', 'Trends', 'Styles', or 'Outfit', you MUST KEEP THEM. Max 7 words.",
+  "title": "The full, original title. Ensure perfect grammar and NO numerical redundancy (e.g., use '30th' NOT '30 30th').",
+  "shortOverlayTitle": "Extract the core entity for the image text. Absolutely avoid redundancy. NEVER repeat the same word or year twice. Max 7 words. Diversify significantly for variations.",
   "description": "A compelling, keyword-rich description between 100 and 800 characters. No hashtags.",
   "keywords": "comma separated list of 5-8 SEO keywords",
   "generatedBoardName": "The Pinterest board name to use (either from the EXISTING BOARDS list or a new high-quality name)",
@@ -531,10 +531,15 @@ ${boardsInstruction}
 
                             // --- PHASE 3: NICHE-AWARE AESTHETICS COMPOSITING ---
                             // We do this REGARDLESS of whether the AI generated the image or we fell back.
-                            const urlMatch = url.match(/(?:\/|-)(\d+)(?:\/|-|$)/) || url.match(/\d+/);
-                            const extractedNum = urlMatch ? urlMatch[1] || urlMatch[0] : null;
-                            const prefix = extractedNum ? `${extractedNum} ` : '';
-                            const overlayTitle = `${prefix}${textData.shortOverlayTitle}`.trim();
+                             const urlMatch = url.match(/(?:\/|-)(\d+)(?:\/|-|$)/) || url.match(/\d+/);
+                             const extractedNum = urlMatch ? urlMatch[1] || urlMatch[0] : null;
+                             
+                             // Smart Deduplication: If the extracted number (e.g., 30) is already leading the title (e.g., 30th), skip prefix.
+                             const cleanShortTitle = textData.shortOverlayTitle || "";
+                             const alreadyHasNum = extractedNum && cleanShortTitle.toLowerCase().trim().startsWith(extractedNum.toLowerCase());
+                             
+                             const prefix = (extractedNum && !alreadyHasNum) ? `${extractedNum} ` : '';
+                             const overlayTitle = `${prefix}${cleanShortTitle}`.trim();
                             const overlayPngBuffer = await generateTextOverlayBuffer(overlayTitle, resolvedCategory);
 
                             // Composite Image + Canvas PNG overlay using sharp (PNG compositing works everywhere)
