@@ -310,22 +310,6 @@ export async function POST(req) {
             return NextResponse.json({ error: 'API Keys are missing (Gemini or ImgBB)' }, { status: 500 });
         }
 
-        // Initialize Gemini models with the effective key
-        // Explicitly use v1 API version to avoid v1beta 404 errors for standard models
-        const genAI = new GoogleGenerativeAI(effectiveGeminiKey, { apiVersion: 'v1' });
-        
-        // Safety settings: Set to BLOCK_NONE to ensure consistent generation
-        const safetySettings = [
-            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-        ];
-
-        // Probe for available models if we get stuck (logged to console)
-        // Note: genAI.listModels() requires specific permissions, so we'll just try names
-        const textModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash", safetySettings });
-
         // Phase 4: Niche Aesthetic Prompt Engineering — "Human-Feel" Framework
         const nichePrompts = {
             "Beauty & Makeup": "ONE SINGLE UNIFIED CAMERA SHOT. Human, raw, non-AI aesthetic. Disposable camera or 35mm film grain. Flash photography look. Visible skin pores, real cuticles, some natural skin imperfections like faint freckles or moles. Strictly NO smooth AI skin or plastic CGI textures. Close-up macro portrait. Shot on iPhone with high ISO noise. Natural, unedited influencer look.",
@@ -395,32 +379,52 @@ ${boardsInstruction}
   "imagePrompt": "A highly detailed image prompt. ONE SINGLE UNIFIED PHOTO. NO Grid, NO Collage. HUMAN-FEEL: Raw, authentic, film grain, unedited influencer look. Focus on ONE person. NO text."
 }
 `;
-                            const textResult = await textModel.generateContent(textPrompt);
-                            const response = textResult.response;
-                            const candidates = response.candidates;
+                            // REST API Generation (Permanent Fix for SDK 404s)
+                            const REST_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${effectiveGeminiKey}`;
                             
-                            if (!candidates || candidates.length === 0) {
-                                console.warn(`No candidates returned for ${url}. Response:`, JSON.stringify(response));
-                                throw new Error('No candidates returned from Gemini.');
+                            const restResponse = await fetch(REST_URL, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    contents: [{ parts: [{ text: textPrompt }] }],
+                                    generationConfig: {
+                                        temperature: 1,
+                                        topK: 40,
+                                        topP: 0.95,
+                                        maxOutputTokens: 8192,
+                                        responseMimeType: "application/json",
+                                    }
+                                })
+                            });
+
+                            if (!restResponse.ok) {
+                                const errorText = await restResponse.text();
+                                throw new Error(`REST API Error (${restResponse.status}): ${errorText}`);
                             }
 
-                            const mainCandidate = candidates[0];
+                            const resultJson = await restResponse.json();
+                            
+                            if (!resultJson.candidates || resultJson.candidates.length === 0) {
+                                throw new Error('No candidates returned from REST API.');
+                            }
+
+                            const mainCandidate = resultJson.candidates[0];
                             if (mainCandidate.finishReason !== 'STOP') {
-                                console.warn(`Gemini Finish Reason for ${url}: ${mainCandidate.finishReason}. Feedback:`, JSON.stringify(response.promptFeedback));
+                                console.warn(`Gemini Finish Reason: ${mainCandidate.finishReason}`);
                             }
 
-                            const generatedText = response.text().trim();
+                            const generatedText = mainCandidate.content.parts[0].text.trim();
                             
-                            // Clean response just in case it still has markdown
+                            // Clean response just in case
                             const cleanJsonStr = generatedText.replace(/^```json/i, '').replace(/```$/g, '').trim();
-                            console.log(`[DEBUG] Gemini Cleaned JSON for ${url}:`, cleanJsonStr.substring(0, 100) + '...');
+                            console.log(`[DEBUG] Gemini REST Cleaned JSON:`, cleanJsonStr.substring(0, 100) + '...');
                             
                             try {
                                 textData = JSON.parse(cleanJsonStr);
                             } catch (parseErr) {
-                                console.error(`JSON Parse Error for ${url}:`, parseErr.message);
-                                console.error(`Full Raw Gemini Response:`, generatedText);
-                                throw new Error('Failed to parse Gemini response as JSON.');
+                                console.error(`JSON Parse Error:`, parseErr.message);
+                                console.error(`Full Raw Response:`, generatedText);
+                                throw new Error('Failed to parse REST response as JSON.');
                             }
                         } catch (textErr) {
                             console.error(`Gemini Text Generation Error for ${url}:`, textErr.message);
