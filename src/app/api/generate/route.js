@@ -311,18 +311,18 @@ export async function POST(req) {
 
         // Phase 4: Niche Aesthetic Prompt Engineering — "Human-Feel" Framework
         const nichePrompts = {
-            "Beauty & Makeup": "ONE SINGLE UNIFIED CAMERA SHOT. Human, raw, non-AI aesthetic. Disposable camera or 35mm film grain. Flash photography look. Visible skin pores, real cuticles, some natural skin imperfections like faint freckles or moles. Strictly NO smooth AI skin or plastic CGI textures. Close-up macro portrait. Shot on iPhone with high ISO noise. Natural, unedited influencer look.",
-            "Hair Styling": "ONE SINGLE UNIFIED CAMERA SHOT. Authentic human feel, not AI. Candid, unposed motion. 35mm grain, raw blogger style. Soft film-like focus but strictly sharp on the hair texture. Non-perfect lighting. Motion blur in the background. Strictly NO airbrushing or plastic smoothness. Real-world messy bedroom or city street backdrop. Human imperfection is key.",
-            "Fashion & Outfits": "ONE SINGLE UNIFIED CAMERA SHOT. Harsh, authentic lighting (no studio lights). Disposable camera flash or natural high-contrast sun. Real 35mm film texture. Influencer-style mirror selfie or outdoor candid walk. Subject is not perfectly posed. Clothes have realistic fabric wrinkles. NO plastic skin or CGI look. RAW photo quality, unedited, slightly amateur but stylish.",
-            "Nails & Beauty": "ONE SINGLE UNIFIED CAMERA SHOT. Hyper-realistic human skin, raw hand photography. Flash photography on a smartphone. Visible skin grain, natural cuticles, real-looking human hands. NO smooth AI 'plastic' hands. High detail on nail polish texture with realistic reflections. Background is a real-world setting like a coffee cup or fuzzy sweater."
+            "Beauty & Makeup": "ULTRA-REALISTIC RAW SNAPSHOT. Close-up portrait. Disposable camera aesthetic, 35mm film grain, direct flash photography. Authentic lens flare. Visible skin pores, real cuticles, natural skin imperfections. NO smooth AI skin, NO CGI textures. NO bokeh, NO studio lighting. Captured on street.",
+            "Hair Styling": "ULTRA-REALISTIC RAW SNAPSHOT. Candid motion. 35mm film grain, raw blogger style. Natural lighting (not studio). Handheld camera shakiness. Motion blur in background. NO airbrushing or plastic smoothness. Real human imperfections. Captured in messy room or street.",
+            "Fashion & Outfits": "ULTRA-REALISTIC RAW SNAPSHOT. FULL BODY SHOT - HEAD TO TOE. Wide angle lens. Disposable camera aesthetic, 35mm film grain, direct flash photography. Authentic lens flare. NO bokeh, NO studio lighting. NO AI smoothness, NO CGI textures. REAL human proportions. Captured on street.",
+            "Nails & Beauty": "ULTRA-REALISTIC RAW SNAPSHOT. Hyper-realistic human skin, raw hand photography. Flash photography on smartphone. Visible skin grain, natural cuticles. NO smooth AI hands. High detail nail reflections. Background: coffee cup or sweater."
         };
 
         // Niche-specific guidance injected into the Gemini imagePrompt instruction
         const nicheImageTips = {
-            "Beauty & Makeup": "CRITICAL: ONE SINGLE UNIFIED PHOTO. NO Grid/Collage. HUMAN-FEEL: Real pores, skin grain, and imperfections. NO smooth AI skin. NO plastic textures. Shot on disposable camera/iPhone flash. No text.",
-            "Hair Styling": "CRITICAL: ONE SINGLE UNIFIED PHOTO. NO Grid/Collage. HUMAN-FEEL: Raw 35mm grain. Candid blogger style. NO plastic/airbrushed hair. imperfect, real human look. No text.",
-            "Fashion & Outfits": "CRITICAL: ONE SINGLE UNIFIED PHOTO. NO Grid/Collage. HUMAN-FEEL: Harsh influencer flash, film grain, fabric wrinkles. NO plastic skin or CGI aesthetic. Unposed, raw, unedited. No text.",
-            "Nails & Beauty": "CRITICAL: ONE SINGLE UNIFIED PHOTO. NO Grid/Collage. HUMAN-FEEL: Raw skin texture, real cuticles. NO smooth AI hands. Authentic, organic, and imperfect. No text."
+            "Beauty & Makeup": "CRITICAL: ONE SINGLE UNIFIED PHOTO. NO Grid/Collage. HUMAN-FEEL: Real pores, skin grain, and imperfections. NO smooth AI skin. NO bokeh. Shot on disposable camera flash. No text.",
+            "Hair Styling": "CRITICAL: ONE SINGLE UNIFIED PHOTO. NO Grid/Collage. HUMAN-FEEL: Raw 35mm grain. Candid blogger style. NO airbrush/plastic hair. NO bokeh. No text.",
+            "Fashion & Outfits": "CRITICAL: ONE SINGLE UNIFIED PHOTO. FULL BODY (HEAD TO TOE). NO Grid/Collage. HUMAN-FEEL: Harsh influencer flash, film grain, fabric wrinkles. NO bokeh. Unposed, raw. No text.",
+            "Nails & Beauty": "CRITICAL: ONE SINGLE UNIFIED PHOTO. NO Grid/Collage. HUMAN-FEEL: Raw skin texture, real cuticles. NO smooth AI hands. High nail detail. No text."
         };
 
         const encoder = new TextEncoder();
