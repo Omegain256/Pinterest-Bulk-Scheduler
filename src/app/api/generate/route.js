@@ -456,57 +456,74 @@ ${boardsInstruction}
                             try {
                                 let imageResponseOk = false;
                                 let imgData = null;
+                                let quotaExhausted = false;
                                 
-                                // Imagen Fallback Chain (Verified for this key)
-                                const imageModels = [
-                                    'imagen-4.0-generate-001',
-                                    'imagen-3.0-generate-001'
-                                ];
+                                // Keys to try for Imagen
+                                const keysToTry = [
+                                    effectiveGeminiKey.trim(),
+                                    process.env.GEMINI_API_KEY.trim()
+                                ].filter((v, i, a) => a.indexOf(v) === i); // unique only
 
-                                for (const imgModel of imageModels) {
-                                    try {
-                                        console.log(`[RETRY] Attempting Imagen model: ${imgModel}...`);
-                                        const imageResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${imgModel}:predict?key=${effectiveGeminiKey.trim()}`, {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({
-                                                instances: [{ prompt: finalImagePrompt }],
-                                                parameters: { sampleCount: 1, aspectRatio: '9:16' }
-                                            })
-                                        });
+                                // Models to try (Verified imagen-4.0 is available)
+                                const imageModels = ['imagen-4.0-generate-001', 'imagen-4.0-fast-generate-001'];
 
-                                        if (imageResponse.ok) {
-                                            const responseJson = await imageResponse.json();
-                                            if (responseJson.predictions && responseJson.predictions[0]) {
-                                                imgData = responseJson;
-                                                imageResponseOk = true;
-                                                console.log(`[SUCCESS] Imagen ${imgModel} worked!`);
-                                                break;
+                                keyLoop: for (const currentKey of keysToTry) {
+                                    for (const imgModel of imageModels) {
+                                        try {
+                                            console.log(`[RETRY] Attempting Imagen model: ${imgModel} with ${currentKey.substring(0, 8)}...`);
+                                            const imageResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${imgModel}:predict?key=${currentKey}`, {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                    instances: [{ prompt: finalImagePrompt }],
+                                                    parameters: { sampleCount: 1, aspectRatio: '9:16' }
+                                                })
+                                            });
+
+                                            if (imageResponse.ok) {
+                                                const responseJson = await imageResponse.json();
+                                                if (responseJson.predictions && responseJson.predictions[0]) {
+                                                    imgData = responseJson;
+                                                    imageResponseOk = true;
+                                                    console.log(`[SUCCESS] Imagen ${imgModel} worked!`);
+                                                    break keyLoop;
+                                                }
+                                            } else {
+                                                const errorText = await imageResponse.text();
+                                                if (imageResponse.status === 429 || errorText.includes('RESOURCE_EXHAUSTED')) {
+                                                    console.warn(`[QUOTA] Key ${currentKey.substring(0, 8)} exhausted for ${imgModel}.`);
+                                                    quotaExhausted = true;
+                                                    continue; // try next model or key
+                                                }
+                                                console.warn(`Imagen ${imgModel} failed (HTTP ${imageResponse.status}):`, errorText.substring(0, 100));
                                             }
-                                        } else {
-                                            const errorText = await imageResponse.text();
-                                            console.warn(`Imagen ${imgModel} failed (HTTP ${imageResponse.status}):`, errorText.substring(0, 100));
+                                        } catch (fetchErr) {
+                                            console.error(`Imagen network error:`, fetchErr.message);
                                         }
-                                    } catch (fetchErr) {
-                                        console.error(`Imagen network error for ${imgModel}:`, fetchErr.message);
                                     }
                                 }
 
-                            let rawBuffer;
-                            if (imageResponseOk) {
-                                const rawBase64Image = imgData.predictions[0].bytesBase64Encoded;
-                                rawBuffer = Buffer.from(rawBase64Image, 'base64');
-                            } else {
-                                console.warn(`All Imagen retries failed for ${url}. Using solid color fallback.`);
-                                rawBuffer = await sharp({
-                                    create: {
-                                        width: 1000,
-                                        height: 1500,
-                                        channels: 4,
-                                        background: { r: 235, g: 235, b: 240, alpha: 1 }
-                                    }
-                                }).png().toBuffer();
-                            }
+                                let rawBuffer;
+                                if (imageResponseOk) {
+                                    const rawBase64Image = imgData.predictions[0].bytesBase64Encoded;
+                                    rawBuffer = Buffer.from(rawBase64Image, 'base64');
+                                } else {
+                                    const reason = quotaExhausted ? "IMAGE QUOTA EXHAUSTED" : "IMAGE GEN FAILED";
+                                    console.warn(`[FAIL] ${reason}. Final fallback applied.`);
+                                    
+                                    // Set a visible error in the Pin data
+                                    textData.title = `[${reason}] ${textData.title}`;
+                                    textData.shortOverlayTitle = reason;
+
+                                    rawBuffer = await sharp({
+                                        create: {
+                                            width: 1000,
+                                            height: 1500,
+                                            channels: 4,
+                                            background: { r: 235, g: 235, b: 240, alpha: 1 }
+                                        }
+                                    }).png().toBuffer();
+                                }
 
                             // --- PHASE 3: NICHE-AWARE AESTHETICS COMPOSITING ---
                             // We do this REGARDLESS of whether the AI generated the image or we fell back.
