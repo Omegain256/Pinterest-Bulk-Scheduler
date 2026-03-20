@@ -1,7 +1,2 @@
 {
-    "functions": {
-        "src/app/api/generate/route.js": {
-            "maxDuration": 300
-        }
-    }
 }
