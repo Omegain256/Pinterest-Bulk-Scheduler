@@ -317,20 +317,20 @@ export async function POST(req) {
         const textModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
         const imageModel = genAI.getGenerativeModel({ model: "imagen-4.0-fast-generate-001" });
 
-        // Phase 4: Niche Aesthetic Prompt Engineering Lookups — matched to reference styles
+        // Phase 4: Niche Aesthetic Prompt Engineering — "Human-Feel" Framework
         const nichePrompts = {
-            "Beauty & Makeup": "ONE SINGLE UNIFIED CAMERA SHOT of one woman. NO GRID. NO COLLAGE. NO REPEATING SUBJECTS. Extreme close-up macro portrait with flawless makeup. Shot on a professional DSLR or iPhone with a macro lens. Visible skin pores, natural textures, and realistic eye details. NO plastic or AI-smoothed skin. Natural light from a window. High contrast, sharp focus.",
-            "Hair Styling": "ONE SINGLE UNIFIED CAMERA SHOT of one woman. NO GRID. NO COLLAGE. NO REPEATING SUBJECTS. Candid, natural-light scenarios: mirror selfie or minimalist bedroom. Visible hair strands, flyaways, and real skin texture. Shot in a real-world environment with soft daylight. Raw iPhone aesthetic. The photo must feel authentic, relatable, and humanly imperfect.",
-            "Fashion & Outfits": "ONE SINGLE UNIFIED CAMERA SHOT of one woman showing her outfit. STICTLY NO COLLAGE. NO GRID. NO SPLIT-SCREEN. NO REPEATING PEOPLE. Influencer-style: full-length mirror selfie, bedroom lifestyle shot, or outdoor street-style. Neutral dressing rooms or minimalist apartments. Shot on an iPhone 15 Pro, unedited, raw blogger style. NO smooth plastic AI skin. Genuine, organic film-grain quality. Outdoor shots must look completely raw and natural.",
-            "Nails & Beauty": "ONE SINGLE UNIFIED CAMERA SHOT. NO GRID. NO COLLAGE. NO REPEATING SUBJECTS. Extreme macro shot: hand resting on a coffee cup or knit sweater. Texture of the skin, cuticles, and nail polish must be hyper-realistic. Natural soft lighting. Avoid perfectly symmetrical or plastic-looking 'AI hands'. Authentic, tactile, and raw aesthetic."
+            "Beauty & Makeup": "ONE SINGLE UNIFIED CAMERA SHOT. Human, raw, non-AI aesthetic. Disposable camera or 35mm film grain. Flash photography look. Visible skin pores, real cuticles, some natural skin imperfections like faint freckles or moles. Strictly NO smooth AI skin or plastic CGI textures. Close-up macro portrait. Shot on iPhone with high ISO noise. Natural, unedited influencer look.",
+            "Hair Styling": "ONE SINGLE UNIFIED CAMERA SHOT. Authentic human feel, not AI. Candid, unposed motion. 35mm grain, raw blogger style. Soft film-like focus but strictly sharp on the hair texture. Non-perfect lighting. Motion blur in the background. Strictly NO airbrushing or plastic smoothness. Real-world messy bedroom or city street backdrop. Human imperfection is key.",
+            "Fashion & Outfits": "ONE SINGLE UNIFIED CAMERA SHOT. Harsh, authentic lighting (no studio lights). Disposable camera flash or natural high-contrast sun. Real 35mm film texture. Influencer-style mirror selfie or outdoor candid walk. Subject is not perfectly posed. Clothes have realistic fabric wrinkles. NO plastic skin or CGI look. RAW photo quality, unedited, slightly amateur but stylish.",
+            "Nails & Beauty": "ONE SINGLE UNIFIED CAMERA SHOT. Hyper-realistic human skin, raw hand photography. Flash photography on a smartphone. Visible skin grain, natural cuticles, real-looking human hands. NO smooth AI 'plastic' hands. High detail on nail polish texture with realistic reflections. Background is a real-world setting like a coffee cup or fuzzy sweater."
         };
 
         // Niche-specific guidance injected into the Gemini imagePrompt instruction
         const nicheImageTips = {
-            "Beauty & Makeup": "CRITICAL: ONE SINGLE UNIFIED PHOTOGRAPH ONLY. NO GRID. NO COLLAGE. NO REPEATING SUBJECTS. NO SPLIT-SCREEN. Must look like a RAW photo with visible pores. Strictly ONE person. STRONGLY FORBID plastic or AI-smoothed look. No text.",
-            "Hair Styling": "CRITICAL: ONE SINGLE UNIFIED PHOTOGRAPH ONLY. NO GRID. NO COLLAGE. NO REPEATING SUBJECTS. NO SPLIT-SCREEN. Must feel like an UNEDITED smartphone photo. Strictly ONE person. Diverse ethnic backgrounds. STRONGLY FORBID artificial 'AI' CGI look. No text.",
-            "Fashion & Outfits": "CRITICAL: ONE SINGLE UNIFIED PHOTOGRAPH ONLY. NO GRID. NO COLLAGE. NO REPEATING SUBJECTS. NO SPLIT-SCREEN. Strictly ONE person. Must look like a real, raw, unedited iPhone photo. NO multi-panel or composite images. Focus on fabric texture. No text.",
-            "Nails & Beauty": "CRITICAL: ONE SINGLE UNIFIED PHOTOGRAPH ONLY. NO GRID. NO COLLAGE. NO REPEATING SUBJECTS. NO SPLIT-SCREEN. Hyper-realistic skin texture. Strictly ONE person. Only one hand focus. Variety in background. No text."
+            "Beauty & Makeup": "CRITICAL: ONE SINGLE UNIFIED PHOTO. NO Grid/Collage. HUMAN-FEEL: Real pores, skin grain, and imperfections. NO smooth AI skin. NO plastic textures. Shot on disposable camera/iPhone flash. No text.",
+            "Hair Styling": "CRITICAL: ONE SINGLE UNIFIED PHOTO. NO Grid/Collage. HUMAN-FEEL: Raw 35mm grain. Candid blogger style. NO plastic/airbrushed hair. imperfect, real human look. No text.",
+            "Fashion & Outfits": "CRITICAL: ONE SINGLE UNIFIED PHOTO. NO Grid/Collage. HUMAN-FEEL: Harsh influencer flash, film grain, fabric wrinkles. NO plastic skin or CGI aesthetic. Unposed, raw, unedited. No text.",
+            "Nails & Beauty": "CRITICAL: ONE SINGLE UNIFIED PHOTO. NO Grid/Collage. HUMAN-FEEL: Raw skin texture, real cuticles. NO smooth AI hands. Authentic, organic, and imperfect. No text."
         };
 
         const encoder = new TextEncoder();
@@ -354,7 +354,7 @@ export async function POST(req) {
                             : `Generate highly engaging, click-driving Pinterest content for the "${niche}" niche.`;
 
                         const variationPrompt = isVariation
-                            ? `This is variation #${variationIndex} for this specific URL. CRITICAL: You MUST generate a strictly unique Title and Description. Ensure the 'shortOverlayTitle' is different from previous variations (e.g., if one was "Luau Outfit Ideas", this one could be "Trendy Luau Outfit Ideas" or "Summer Luau Looks").`
+                            ? `This is variation #${variationIndex} for this specific URL. CRITICAL: You MUST generate a strictly unique Title and Description. Ensure the 'shortOverlayTitle' is different from previous variations.`
                             : "";
 
                         const categorySchemaField = isAutoDetect
@@ -368,19 +368,19 @@ export async function POST(req) {
 
                         // 1. Generate Text (Title, Description, Keywords, Image Prompt)
                         const textPrompt = `
-You are an expert Pinterest marketer. Analyze this destination URL conceptually (you don't need to visit it, just infer from the URL slug if needed): ${url}
+You are an expert Pinterest marketer. Analyze this destination URL conceptually: ${url}
 ${nicheInstruction}
 ${variationPrompt}
 ${boardsInstruction}
 
 // Return ONLY a valid raw JSON object with no markdown formatting or backticks, with the following schema:
 {${categorySchemaField}
-  "title": "The full, original title of the URL content (e.g. 'Stunning Plus-Size Rodeo Outfits for Every Cowgirl')",
-  "shortOverlayTitle": "Extract the core entity/concept for the image text overlay. CRITICAL: Absolutely avoid redundancy. NEVER repeat the same word or year twice in this specific string. Ensure perfect grammar. If the original title contains words like 'Ideas', 'Looks', 'Trends', 'Styles', or 'Outfit', you MUST KEEP THEM. Max 7 words. (e.g., avoid '2026 Outfits for 2026', just use '2026 Outfit Ideas')",
+  "title": "The full, original title of the URL content",
+  "shortOverlayTitle": "Extract the core entity/concept for the image text overlay. CRITICAL: Absolutely avoid redundancy. NEVER repeat the same word or year twice. Ensure perfect grammar. If the original title contains words like 'Ideas', 'Looks', 'Trends', 'Styles', or 'Outfit', you MUST KEEP THEM. Max 7 words.",
   "description": "A compelling, keyword-rich description between 100 and 800 characters. No hashtags.",
   "keywords": "comma separated list of 5-8 SEO keywords",
   "generatedBoardName": "The Pinterest board name to use (either from the EXISTING BOARDS list or a new high-quality name)",
-  "imagePrompt": "A highly detailed, descriptive prompt for an AI image generator. ONE SINGLE UNIFIED PHOTO. NO Grid, NO Collage, NO split-screen. Focus on ONE person. Focus on atmosphere and texture."
+  "imagePrompt": "A highly detailed image prompt. ONE SINGLE UNIFIED PHOTO. NO Grid, NO Collage. HUMAN-FEEL: Raw, authentic, film grain, unedited influencer look. Focus on ONE person. NO text."
 }
 `;
                         const textResult = await textModel.generateContent(textPrompt);
