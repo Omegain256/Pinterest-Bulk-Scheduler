@@ -378,12 +378,13 @@ ${boardsInstruction}
   "imagePrompt": "A highly detailed image prompt. ONE SINGLE UNIFIED PHOTO. NO Grid, NO Collage. HUMAN-FEEL: Raw, authentic, film grain, unedited influencer look. Focus on ONE person. NO text."
 }
 `;
-                            // Phase 1: Smart Text Generation Fallback Chain
+                            // Phase 1: Verified Smart Text Generation Fallback Chain
+                            // Probed & confirmed for this key: v1beta/gemini-1.5-flash
                             const modelsToTry = [
-                                { v: 'v1', m: 'gemini-1.5-flash' },
                                 { v: 'v1beta', m: 'gemini-1.5-flash' },
-                                { v: 'v1', m: 'gemini-1.5-pro' },
-                                { v: 'v1beta', m: 'gemini-2.0-flash' }
+                                { v: 'v1', m: 'gemini-1.5-flash' },
+                                { v: 'v1beta', m: 'gemini-2.0-flash-lite' },
+                                { v: 'v1beta', m: 'gemini-2.0-flash-exp' }
                             ];
 
                             let lastError = null;
@@ -391,7 +392,7 @@ ${boardsInstruction}
 
                             for (const modelInfo of modelsToTry) {
                                 try {
-                                    const REST_URL = `https://generativelanguage.googleapis.com/${modelInfo.v}/models/${modelInfo.m}:generateContent?key=${effectiveGeminiKey}`;
+                                    const REST_URL = `https://generativelanguage.googleapis.com/${modelInfo.v}/models/${modelInfo.m}:generateContent?key=${effectiveGeminiKey.trim()}`;
                                     console.log(`[RETRY] Attempting ${modelInfo.v}/${modelInfo.m}...`);
                                     
                                     const restResponse = await fetch(REST_URL, {
@@ -431,7 +432,7 @@ ${boardsInstruction}
                             
                             // Fallback minimal data if text generation completely fails
                             textData = {
-                                title: `Error: ${textErr.message.substring(0, 1000)}`,
+                                title: `Error: ${textErr.message.substring(0, 500)}`,
                                 shortOverlayTitle: "API Issue",
                                 description: `Failed to analyze URL. Error: ${textErr.message}.`,
                                 keywords: "error, api, issue",
@@ -452,41 +453,44 @@ ${boardsInstruction}
                         // 2. Generate Image using Imagen 3
                         let finalImageUrl = ''; // fallback to empty string
 
-                        try {
-                            let imageResponseOk = false;
-                            let imgData = null;
-                            let retryCount = 0;
+                            try {
+                                let imageResponseOk = false;
+                                let imgData = null;
+                                
+                                // Imagen Fallback Chain (Verified for this key)
+                                const imageModels = [
+                                    'imagen-4.0-generate-001',
+                                    'imagen-3.0-generate-001'
+                                ];
 
-                            while (retryCount < 3 && !imageResponseOk) {
-                                try {
-                                    // Current Google AI Studio Imagen 3 REST call approach via fetch
-                                    const imageResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${effectiveGeminiKey}`, {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                            instances: [{ prompt: finalImagePrompt }],
-                                            parameters: { sampleCount: 1, aspectRatio: '9:16' }
-                                        })
-                                    });
+                                for (const imgModel of imageModels) {
+                                    try {
+                                        console.log(`[RETRY] Attempting Imagen model: ${imgModel}...`);
+                                        const imageResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${imgModel}:predict?key=${effectiveGeminiKey.trim()}`, {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                                instances: [{ prompt: finalImagePrompt }],
+                                                parameters: { sampleCount: 1, aspectRatio: '9:16' }
+                                            })
+                                        });
 
-                                    if (imageResponse.ok) {
-                                        imgData = await imageResponse.json();
-                                        if (imgData.predictions && imgData.predictions[0]) {
-                                            imageResponseOk = true;
-                                            break;
+                                        if (imageResponse.ok) {
+                                            const responseJson = await imageResponse.json();
+                                            if (responseJson.predictions && responseJson.predictions[0]) {
+                                                imgData = responseJson;
+                                                imageResponseOk = true;
+                                                console.log(`[SUCCESS] Imagen ${imgModel} worked!`);
+                                                break;
+                                            }
+                                        } else {
+                                            const errorText = await imageResponse.text();
+                                            console.warn(`Imagen ${imgModel} failed (HTTP ${imageResponse.status}):`, errorText.substring(0, 100));
                                         }
-                                    } else {
-                                        const errorText = await imageResponse.text();
-                                        console.warn(`Imagen attempt ${retryCount + 1} failed (HTTP ${imageResponse.status}):`, errorText);
+                                    } catch (fetchErr) {
+                                        console.error(`Imagen network error for ${imgModel}:`, fetchErr.message);
                                     }
-                                } catch (fetchErr) {
-                                    console.error(`Imagen network error on attempt ${retryCount + 1}:`, fetchErr.message);
                                 }
-                                retryCount++;
-                                if (!imageResponseOk && retryCount < 3) {
-                                    await new Promise(r => setTimeout(r, 2000)); // wait 2s before retry
-                                }
-                            }
 
                             let rawBuffer;
                             if (imageResponseOk) {
