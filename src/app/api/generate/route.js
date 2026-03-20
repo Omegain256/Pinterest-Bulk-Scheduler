@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 import sharp from 'sharp';
 import { createCanvas, GlobalFonts } from '@napi-rs/canvas';
@@ -558,7 +557,8 @@ ${boardsInstruction}
                             imageUrl: finalImageUrl,
                             boardName: textData.generatedBoardName || 'Automated Ideas',
                             publishDate: new Date().toISOString(),
-                            keywords: textData.keywords
+                            keywords: textData.keywords,
+                            versionTag: "2.0-REST-FINAL"
                         };
 
                         // Stream chunk to client instantly
@@ -575,7 +575,8 @@ ${boardsInstruction}
                             imageUrl: "",
                             boardName: 'Error Handling',
                             publishDate: new Date().toISOString(),
-                            keywords: "error"
+                            keywords: "error",
+                            versionTag: "2.0-REST-FINAL"
                         };
 
                         // Stream error chunk to client instantly
