@@ -312,10 +312,9 @@ export async function POST(req) {
 
         // Initialize Gemini models with the effective key
         const genAI = new GoogleGenerativeAI(effectiveGeminiKey);
-        // Using gemini-2.5-flash (confirmed working on this key)
-        // Using imagen-4.0-fast-generate-001 (confirmed working on this key)
-        const textModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-        const imageModel = genAI.getGenerativeModel({ model: "imagen-4.0-fast-generate-001" });
+        // Using stable working models
+        const textModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const imageModel = genAI.getGenerativeModel({ model: "imagen-3.0-generate-001" });
 
         // Phase 4: Niche Aesthetic Prompt Engineering — "Human-Feel" Framework
         const nichePrompts = {
@@ -409,7 +408,7 @@ ${boardsInstruction}
                             while (retryCount < 3 && !imageResponseOk) {
                                 try {
                                     // Current Google AI Studio Imagen 3 REST call approach via fetch
-                                    const imageResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${effectiveGeminiKey}`, {
+                                    const imageResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${effectiveGeminiKey}`, {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({
@@ -425,7 +424,8 @@ ${boardsInstruction}
                                             break;
                                         }
                                     } else {
-                                        console.warn(`Imagen attempt ${retryCount + 1} failed:`, await imageResponse.text());
+                                        const errorText = await imageResponse.text();
+                                        console.warn(`Imagen attempt ${retryCount + 1} failed (HTTP ${imageResponse.status}):`, errorText);
                                     }
                                 } catch (fetchErr) {
                                     console.error(`Imagen network error on attempt ${retryCount + 1}:`, fetchErr.message);
