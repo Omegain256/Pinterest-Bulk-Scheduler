@@ -322,7 +322,6 @@ export async function POST(req) {
         ];
 
         const textModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash", safetySettings });
-        const imageModel = genAI.getGenerativeModel({ model: "imagen-3.0-generate-001", safetySettings });
 
         // Phase 4: Niche Aesthetic Prompt Engineering — "Human-Feel" Framework
         const nichePrompts = {
@@ -424,11 +423,11 @@ ${boardsInstruction}
                             console.error(`Gemini Text Generation Error for ${url}:`, textErr.message);
                             // Fallback minimal data if text generation completely fails
                             textData = {
-                                title: "Discovery",
-                                shortOverlayTitle: "Trending Ideas",
-                                description: "Explore the latest trends and styles in this carefully curated collection.",
-                                keywords: "style, trends, inspiration",
-                                generatedBoardName: niche !== 'Auto-Detect (AI)' ? niche : "New Discoveries",
+                                title: `Error: ${textErr.message.substring(0, 50)}`,
+                                shortOverlayTitle: "API Issue",
+                                description: `The AI failed to analyze this URL. Error: ${textErr.message}. Check your API key or quota.`,
+                                keywords: "error, api, issue",
+                                generatedBoardName: niche !== 'Auto-Detect (AI)' ? niche : "Error Logs",
                                 imagePrompt: `ONE SINGLE UNIFIED PHOTO. HUMAN-FEEL: Raw, authentic ${niche} photography. No text.`
                             };
                         }

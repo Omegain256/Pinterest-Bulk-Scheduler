@@ -73,9 +73,11 @@ export default function Home() {
 
         if (!response.ok) {
           const errJson = await response.json().catch(() => ({}));
-          console.error("Batch failed:", errJson.error);
-          // Don't stop the whole process if one batch fails, just alert
-          continue;
+          const errMsg = errJson.error || "Unknown server error";
+          console.error("Batch failed:", errMsg);
+          alert(`Batch generation failed: ${errMsg}`);
+          setIsGenerating(false); // Stop if a batch fails so they can fix settings
+          return;
         }
 
         const reader = response.body.getReader();
