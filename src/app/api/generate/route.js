@@ -311,18 +311,32 @@ export async function POST(req) {
 
         // Phase 4: Niche Aesthetic Prompt Engineering — "Human-Feel" Framework
         const nichePrompts = {
-            "Beauty & Makeup": "ULTRA-REALISTIC RAW SNAPSHOT. Close-up portrait. Disposable camera aesthetic, 35mm film grain, direct flash photography. Authentic lens flare. Visible skin pores, real cuticles, natural skin imperfections. NO smooth AI skin, NO CGI textures. NO bokeh, NO studio lighting. Captured on street.",
-            "Hair Styling": "ULTRA-REALISTIC RAW SNAPSHOT. Candid motion. 35mm film grain, raw blogger style. Natural lighting (not studio). Handheld camera shakiness. Motion blur in background. NO airbrushing or plastic smoothness. Real human imperfections. Captured in messy room or street.",
-            "Fashion & Outfits": "ULTRA-REALISTIC RAW SNAPSHOT. FULL BODY SHOT - HEAD TO TOE. Wide angle lens. Disposable camera aesthetic, 35mm film grain, direct flash photography. Authentic lens flare. NO bokeh, NO studio lighting. NO AI smoothness, NO CGI textures. REAL human proportions. Captured on street.",
-            "Nails & Beauty": "ULTRA-REALISTIC RAW SNAPSHOT. Hyper-realistic human skin, raw hand photography. Flash photography on smartphone. Visible skin grain, natural cuticles. NO smooth AI hands. High detail nail reflections. Background: coffee cup or sweater."
+            "Beauty & Makeup": [
+                "ULTRA-REALISTIC RAW SNAPSHOT. Close-up portrait. Disposable camera aesthetic, 35mm film grain, direct flash photography. Authentic lens flare. Visible skin pores, real cuticles, natural skin imperfections. NO smooth AI skin, NO CGI textures. NO bokeh, NO studio lighting. Captured on street."
+            ],
+            "Hair Styling": [
+                "ULTRA-REALISTIC RAW SNAPSHOT. Candid motion. 35mm film grain, raw blogger style. Natural lighting (not studio). Handheld camera shakiness. Motion blur in background. NO airbrushing or plastic smoothness. Real human imperfections. Captured in messy room or street."
+            ],
+            "Fashion & Outfits": [
+                "ULTRA-REALISTIC RAW SNAPSHOT. The Faceless Mirror Selfie. Subject holding smartphone obscuring their face. Bright natural indoor lighting. Messy bedroom or modern hallway background. Gen-Z casual style. NO studio lighting. NO AI smoothness.",
+                "ULTRA-REALISTIC RAW SNAPSHOT. The Vintage Indoor Candid. 90s vintage film aesthetic. Slightly underexposed, warm tones. Wood paneling or retro interior background. Candid relaxed pose, looking away from camera. Authentic lens flare.",
+                "ULTRA-REALISTIC RAW SNAPSHOT. FULL BODY SHOT - HEAD TO TOE. Wide angle lens. Disposable camera aesthetic, 35mm film grain, direct flash photography. Authentic lens flare. NO bokeh, NO studio lighting. NO AI smoothness, NO CGI textures. REAL human proportions. Captured on street."
+            ],
+            "Nails & Beauty": [
+                "ULTRA-REALISTIC RAW SNAPSHOT. Hyper-realistic human skin, raw hand photography. Flash photography on smartphone. Visible skin grain, natural cuticles. NO smooth AI hands. High detail nail reflections. Background: coffee cup or sweater."
+            ]
         };
 
         // Niche-specific guidance injected into the Gemini imagePrompt instruction
         const nicheImageTips = {
-            "Beauty & Makeup": "CRITICAL: ONE SINGLE UNIFIED PHOTO. NO Grid/Collage. HUMAN-FEEL: Real pores, skin grain, and imperfections. NO smooth AI skin. NO bokeh. Shot on disposable camera flash. No text.",
-            "Hair Styling": "CRITICAL: ONE SINGLE UNIFIED PHOTO. NO Grid/Collage. HUMAN-FEEL: Raw 35mm grain. Candid blogger style. NO airbrush/plastic hair. NO bokeh. No text.",
-            "Fashion & Outfits": "CRITICAL: ONE SINGLE UNIFIED PHOTO. FULL BODY (HEAD TO TOE). NO Grid/Collage. HUMAN-FEEL: Harsh influencer flash, film grain, fabric wrinkles. NO bokeh. Unposed, raw. No text.",
-            "Nails & Beauty": "CRITICAL: ONE SINGLE UNIFIED PHOTO. NO Grid/Collage. HUMAN-FEEL: Raw skin texture, real cuticles. NO smooth AI hands. High nail detail. No text."
+            "Beauty & Makeup": ["CRITICAL: ONE SINGLE UNIFIED PHOTO. NO Grid/Collage. HUMAN-FEEL: Real pores, skin grain, and imperfections. NO smooth AI skin. NO bokeh. Shot on disposable camera flash. No text."],
+            "Hair Styling": ["CRITICAL: ONE SINGLE UNIFIED PHOTO. NO Grid/Collage. HUMAN-FEEL: Raw 35mm grain. Candid blogger style. NO airbrush/plastic hair. NO bokeh. No text."],
+            "Fashion & Outfits": [
+                "CRITICAL: ONE SINGLE UNIFIED PHOTO. NO Grid/Collage. HUMAN-FEEL: Faceless mirror selfie, realistic messy room layout, authentic outfit layering. No text.",
+                "CRITICAL: ONE SINGLE UNIFIED PHOTO. NO Grid/Collage. HUMAN-FEEL: 90s vintage film grain, harsh retro flash, authentic wood or retro interior styling. No text.",
+                "CRITICAL: ONE SINGLE UNIFIED PHOTO. FULL BODY (HEAD TO TOE). NO Grid/Collage. HUMAN-FEEL: Harsh influencer flash, film grain, fabric wrinkles. NO bokeh. Unposed, raw. No text."
+            ],
+            "Nails & Beauty": ["CRITICAL: ONE SINGLE UNIFIED PHOTO. NO Grid/Collage. HUMAN-FEEL: Raw skin texture, real cuticles. NO smooth AI hands. High nail detail. No text."]
         };
 
         const encoder = new TextEncoder();
@@ -375,7 +389,7 @@ ${boardsInstruction}
   "description": "A compelling, keyword-rich description between 100 and 800 characters. No hashtags.",
   "keywords": "comma separated list of 5-8 SEO keywords",
   "generatedBoardName": "The Pinterest board name to use (either from the EXISTING BOARDS list or a new high-quality name)",
-  "imagePrompt": "A highly detailed image prompt. ONE SINGLE UNIFIED PHOTO. NO Grid, NO Collage. HUMAN-FEEL: Raw, authentic, film grain, unedited influencer look. Focus on ONE person. NO text."
+  "imagePrompt": "A highly detailed image prompt. ONE SINGLE UNIFIED PHOTO. NO Grid, NO Collage. HUMAN-FEEL: Raw, authentic influencer look. Identify specific clothing textures (e.g., knitted embroidered cardigan, silk pants, lace trim, denim, leather) or aesthetic details (e.g., messy room). NO text."
 }
 `;
                             // Phase 1: Verified Smart Text Generation Fallback Chain
@@ -444,10 +458,13 @@ ${boardsInstruction}
                         // Dynamically resolve the aesthetic instruction for this specific iteration
                         const resolvedCategory = isAutoDetect ? textData.autoCategory : niche;
                         // Fallback to Beauty & Makeup if the AI hallucinates a weird category
-                        const specificAesthetic = nichePrompts[resolvedCategory] || nichePrompts["Beauty & Makeup"];
+                        const promptPool = nichePrompts[resolvedCategory] || nichePrompts["Beauty & Makeup"];
+                        const specificAesthetic = Array.isArray(promptPool) ? promptPool[Math.floor(Math.random() * promptPool.length)] : promptPool;
 
                         // Inject the newly resolved aesthetic and rules into the pre-generated imagePrompt
-                        const specificTips = nicheImageTips[resolvedCategory] || "Do not include text in the image.";
+                        const tipsPool = nicheImageTips[resolvedCategory] || "Do not include text in the image.";
+                        const specificTips = Array.isArray(tipsPool) ? tipsPool[Math.floor(Math.random() * tipsPool.length)] : tipsPool;
+                        
                         const finalImagePrompt = `${textData.imagePrompt} CRITICAL AESTHETIC RULES: ${specificAesthetic} ${specificTips}`;
 
                         // 2. Generate Image using Imagen 3
