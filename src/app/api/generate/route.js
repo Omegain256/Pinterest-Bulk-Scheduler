@@ -318,9 +318,9 @@ export async function POST(req) {
                 "ULTRA-REALISTIC RAW SNAPSHOT. Candid motion. 35mm film grain, raw blogger style. Natural lighting (not studio). Handheld camera shakiness. Motion blur in background. NO airbrushing or plastic smoothness. Real human imperfections. Captured in messy room or street."
             ],
             "Fashion & Outfits": [
-                "ULTRA-REALISTIC RAW SNAPSHOT. The Faceless Mirror Selfie. Subject holding smartphone obscuring their face. Bright natural indoor lighting. Messy bedroom or modern hallway background. Gen-Z casual style. NO studio lighting. NO AI smoothness.",
+                "ULTRA-REALISTIC RAW SNAPSHOT. The Faceless Mirror Selfie. Subject holding smartphone obscuring their face, standing in front of a visible mirror. Bright natural indoor lighting. Messy bedroom or modern hallway background. Gen-Z casual style. NO studio lighting. NO AI smoothness.",
                 "ULTRA-REALISTIC RAW SNAPSHOT. The Vintage Indoor Candid. 90s vintage film aesthetic. Slightly underexposed, warm tones. Wood paneling or retro interior background. Candid relaxed pose, looking away from camera. Authentic lens flare.",
-                "ULTRA-REALISTIC RAW SNAPSHOT. FULL BODY SHOT - HEAD TO TOE. Wide angle lens. Disposable camera aesthetic, 35mm film grain, direct flash photography. Authentic lens flare. NO bokeh, NO studio lighting. NO AI smoothness, NO CGI textures. REAL human proportions. Captured on street."
+                "ULTRA-REALISTIC RAW SNAPSHOT. FULL BODY SHOT - HEAD TO TOE. Wide angle lens. Disposable camera aesthetic, 35mm film grain, direct flash photography. Authentic lens flare. NO bokeh, NO studio lighting. NO AI smoothness, NO CGI textures. REAL human proportions. Captured on an outdoor city street."
             ],
             "Nails & Beauty": [
                 "ULTRA-REALISTIC RAW SNAPSHOT. Hyper-realistic human skin, raw hand photography. Flash photography on smartphone. Visible skin grain, natural cuticles. NO smooth AI hands. High detail nail reflections. Background: coffee cup or sweater."
@@ -382,14 +382,16 @@ ${nicheInstruction}
 ${variationPrompt}
 ${boardsInstruction}
 
+CRITICAL RULE: DO NOT use generic AI buzzwords like "Chic", "Elevated", "Stunning", "Captivating", or "Trendy" in ANY of the generated text (title, shortOverlayTitle, description, imagePrompt).
+
 // Return ONLY a valid raw JSON object. NO markdown code blocks. NO backticks.
 {${categorySchemaField}
   "title": "The full, original title. Ensure perfect grammar and NO numerical redundancy (e.g., use '30th' NOT '30 30th').",
-  "shortOverlayTitle": "Extract the core entity for the image text. Absolutely avoid redundancy. NEVER repeat the same word or year twice. Max 7 words. Diversify significantly for variations.",
+  "shortOverlayTitle": "Extract the core entity for the image text. Absolutely avoid redundancy. NEVER repeat the same word or year twice. Max 7 words. Strictly avoid buzzwords like 'Chic'. Diversify significantly for variations.",
   "description": "A compelling, keyword-rich description between 100 and 800 characters. The annotated keywords should blend naturally into the description text for SEO purposes. NO hashtags.",
   "keywords": "comma separated list of 5-8 SEO keywords",
   "generatedBoardName": "The Pinterest board name to use (either from the EXISTING BOARDS list or a new high-quality name)",
-  "imagePrompt": "A highly detailed image prompt. ONE SINGLE UNIFIED PHOTO. NO Grid, NO Collage. HUMAN-FEEL: Raw, authentic influencer look. Identify specific clothing textures (e.g., knitted embroidered cardigan, silk pants, lace trim, denim, leather) or aesthetic details (e.g., messy room). CRITICAL: Do NOT include generic AI words like 'chic'. NO text."
+  "imagePrompt": "A highly detailed image prompt. Describe ONLY the specific clothing, hairstyle, and outfit textures (e.g., knitted embroidered cardigan, silk pants, lace trim, denim, leather). DO NOT specify an environment or background setting (e.g., do not say 'on a street' or 'in a room'), as the setting will be injected later. The subject MUST always be female unless the URL specifically dictates otherwise. ONE SINGLE UNIFIED PHOTO. NO Grid, NO Collage. NO text."
 }
 `;
                             // Phase 1: Verified Smart Text Generation Fallback Chain
@@ -465,7 +467,7 @@ ${boardsInstruction}
                         const tipsPool = nicheImageTips[resolvedCategory] || "Do not include text in the image.";
                         const specificTips = Array.isArray(tipsPool) ? tipsPool[Math.floor(Math.random() * tipsPool.length)] : tipsPool;
                         
-                        const baselinePrompt = "Hyper-realistic photograph, shot on iPhone 15 Pro, 48MP main sensor, natural ambient lighting, slight lens flare, authentic depth of field with soft bokeh background, true-to-life skin texture with natural pores, micro hair detail, realistic eye catchlights, candid unposed composition, slight motion in surroundings, natural color grading with muted warm tones, no AI smoothing, no plastic skin, genuine imperfections — slight asymmetry, natural shadow falloff, real-world environment with environmental storytelling, shot at eye-level, f/1.78 aperture equivalent, cinematic natural light, slight chromatic noise in shadows, photojournalism style, unretouched RAW feel.";
+                        const baselinePrompt = "Hyper-realistic photograph, shot on iPhone 15 Pro, 48MP main sensor, natural ambient lighting, slight lens flare, authentic depth of field with soft bokeh background, true-to-life skin texture with natural pores, micro hair detail, realistic eye catchlights, candid unposed composition, slight motion in surroundings, natural color grading with muted warm tones, no AI smoothing, no plastic skin, genuine imperfections — slight asymmetry, natural shadow falloff, real-world environment with environmental storytelling, shot at eye-level, f/1.78 aperture equivalent, cinematic natural light, slight chromatic noise in shadows, photojournalism style, unretouched RAW feel. Subject is ALWAYS female unless explicitly specified otherwise in the prompt.";
                         const negativeInstructions = "NEGATIVE PROMPT (DO NOT INCLUDE): (worst quality, low quality:1.4), (text, signature, watermark, logo, brand:1.3), (CGI, 3D render, Unreal Engine, Octane render, octane, 3D model, doll, plastic, waxy, silicone, mannequin, airbrushed, retouched, smoothed skin:1.3), (extra fingers, missing fingers, fused fingers, deformed hands, distorted palms, claw hands:1.4), (extra limbs, mutated limbs, missing limbs, disconnected limbs, floating limbs:1.3), (long neck, turtle neck, bad anatomy, gross proportions, malformed body:1.2), (cross-eyed, deformed iris, deformed pupils, dead eyes, glowing eyes:1.3), (bad teeth, warped teeth, missing teeth:1.2), (oversaturated, neon colors, cartoon, anime, illustration, painting, drawing:1.3), (harsh shadows, pitch black shadows, flat lighting:1.1), (grainy, low-res, blurry, compression artifacts:1.2), (cropped head, out of frame, cut off:1.2), (fused clothing, nonsensical jewelry, asymmetric ears:1.1)";
                         const finalImagePrompt = `${baselinePrompt} ${textData.imagePrompt} CRITICAL AESTHETIC RULES: ${specificAesthetic} ${specificTips} ${negativeInstructions}`;
 
