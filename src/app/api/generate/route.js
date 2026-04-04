@@ -386,7 +386,7 @@ ${boardsInstruction}
 {${categorySchemaField}
   "title": "The full, original title. Ensure perfect grammar and NO numerical redundancy (e.g., use '30th' NOT '30 30th').",
   "shortOverlayTitle": "Extract the core entity for the image text. Absolutely avoid redundancy. NEVER repeat the same word or year twice. Max 7 words. Diversify significantly for variations.",
-  "description": "A compelling, keyword-rich description between 100 and 800 characters. No hashtags.",
+  "description": "A compelling, keyword-rich description between 100 and 800 characters. Incorporate annotated hashtag keywords for SEO purposes.",
   "keywords": "comma separated list of 5-8 SEO keywords",
   "generatedBoardName": "The Pinterest board name to use (either from the EXISTING BOARDS list or a new high-quality name)",
   "imagePrompt": "A highly detailed image prompt. ONE SINGLE UNIFIED PHOTO. NO Grid, NO Collage. HUMAN-FEEL: Raw, authentic influencer look. Identify specific clothing textures (e.g., knitted embroidered cardigan, silk pants, lace trim, denim, leather) or aesthetic details (e.g., messy room). CRITICAL: Do NOT include generic AI words like 'chic'. NO text."
@@ -466,7 +466,8 @@ ${boardsInstruction}
                         const specificTips = Array.isArray(tipsPool) ? tipsPool[Math.floor(Math.random() * tipsPool.length)] : tipsPool;
                         
                         const baselinePrompt = "Hyper-realistic photograph, shot on iPhone 15 Pro, 48MP main sensor, natural ambient lighting, slight lens flare, authentic depth of field with soft bokeh background, true-to-life skin texture with natural pores, micro hair detail, realistic eye catchlights, candid unposed composition, slight motion in surroundings, natural color grading with muted warm tones, no AI smoothing, no plastic skin, genuine imperfections — slight asymmetry, natural shadow falloff, real-world environment with environmental storytelling, shot at eye-level, f/1.78 aperture equivalent, cinematic natural light, slight chromatic noise in shadows, photojournalism style, unretouched RAW feel.";
-                        const finalImagePrompt = `${baselinePrompt} ${textData.imagePrompt} CRITICAL AESTHETIC RULES: ${specificAesthetic} ${specificTips}`;
+                        const negativeInstructions = "NEGATIVE PROMPT (DO NOT INCLUDE): (worst quality, low quality:1.4), (text, signature, watermark, logo, brand:1.3), (CGI, 3D render, Unreal Engine, Octane render, octane, 3D model, doll, plastic, waxy, silicone, mannequin, airbrushed, retouched, smoothed skin:1.3), (extra fingers, missing fingers, fused fingers, deformed hands, distorted palms, claw hands:1.4), (extra limbs, mutated limbs, missing limbs, disconnected limbs, floating limbs:1.3), (long neck, turtle neck, bad anatomy, gross proportions, malformed body:1.2), (cross-eyed, deformed iris, deformed pupils, dead eyes, glowing eyes:1.3), (bad teeth, warped teeth, missing teeth:1.2), (oversaturated, neon colors, cartoon, anime, illustration, painting, drawing:1.3), (harsh shadows, pitch black shadows, flat lighting:1.1), (grainy, low-res, blurry, compression artifacts:1.2), (cropped head, out of frame, cut off:1.2), (fused clothing, nonsensical jewelry, asymmetric ears:1.1)";
+                        const finalImagePrompt = `${baselinePrompt} ${textData.imagePrompt} CRITICAL AESTHETIC RULES: ${specificAesthetic} ${specificTips} ${negativeInstructions}`;
 
                         // 2. Generate Image using Imagen 3
                         let finalImageUrl = ''; // fallback to empty string
@@ -500,8 +501,7 @@ ${boardsInstruction}
                                                     instances: [{ prompt: finalImagePrompt }],
                                                     parameters: { 
                                                         sampleCount: 1, 
-                                                        aspectRatio: '9:16',
-                                                        negativePrompt: "(worst quality, low quality:1.4), (text, signature, watermark, logo, brand:1.3), (CGI, 3D render, Unreal Engine, Octane render, octane, 3D model, doll, plastic, waxy, silicone, mannequin, airbrushed, retouched, smoothed skin:1.3), (extra fingers, missing fingers, fused fingers, deformed hands, distorted palms, claw hands:1.4), (extra limbs, mutated limbs, missing limbs, disconnected limbs, floating limbs:1.3), (long neck, turtle neck, bad anatomy, gross proportions, malformed body:1.2), (cross-eyed, deformed iris, deformed pupils, dead eyes, glowing eyes:1.3), (bad teeth, warped teeth, missing teeth:1.2), (oversaturated, neon colors, cartoon, anime, illustration, painting, drawing:1.3), (harsh shadows, pitch black shadows, flat lighting:1.1), (grainy, low-res, blurry, compression artifacts:1.2), (cropped head, out of frame, cut off:1.2), (fused clothing, nonsensical jewelry, asymmetric ears:1.1)"
+                                                        aspectRatio: '9:16'
                                                     }
                                                 })
                                             });
