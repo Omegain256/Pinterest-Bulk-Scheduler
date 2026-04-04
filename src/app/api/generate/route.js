@@ -386,7 +386,7 @@ ${boardsInstruction}
 {${categorySchemaField}
   "title": "The full, original title. Ensure perfect grammar and NO numerical redundancy (e.g., use '30th' NOT '30 30th').",
   "shortOverlayTitle": "Extract the core entity for the image text. Absolutely avoid redundancy. NEVER repeat the same word or year twice. Max 7 words. Diversify significantly for variations.",
-  "description": "A compelling, keyword-rich description between 100 and 800 characters. Incorporate annotated hashtag keywords for SEO purposes.",
+  "description": "A compelling, keyword-rich description between 100 and 800 characters. The annotated keywords should blend naturally into the description text for SEO purposes. NO hashtags.",
   "keywords": "comma separated list of 5-8 SEO keywords",
   "generatedBoardName": "The Pinterest board name to use (either from the EXISTING BOARDS list or a new high-quality name)",
   "imagePrompt": "A highly detailed image prompt. ONE SINGLE UNIFIED PHOTO. NO Grid, NO Collage. HUMAN-FEEL: Raw, authentic influencer look. Identify specific clothing textures (e.g., knitted embroidered cardigan, silk pants, lace trim, denim, leather) or aesthetic details (e.g., messy room). CRITICAL: Do NOT include generic AI words like 'chic'. NO text."
