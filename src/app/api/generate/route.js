@@ -341,6 +341,7 @@ export async function POST(req) {
 
         const encoder = new TextEncoder();
         const urlOccurrences = {};
+        const historyTitles = [];
 
         const stream = new ReadableStream({
             async start(controller) {
@@ -375,14 +376,31 @@ export async function POST(req) {
                         // 1. Generate Text (Title, Description, Keywords, Image Prompt)
                         let textData;
                         try {
+                            const angles = [
+                                "A deeply personal, first-person narrative recommendation.",
+                                "A highly structured, listicle-style summary.",
+                                "An aesthetic, romanticized editorial approach.",
+                                "A bold, contouring, or myth-busting styling tip.",
+                                "A hyper-specific styling hack for everyday life."
+                            ];
+                            const randomAngle = angles[Math.floor(Math.random() * angles.length)];
+                            const historyPrompt = historyTitles.length > 0 
+                                ? `\nCRITICAL ANTI-SPAM RULE: Do NOT use the exact same sentence structure, phrasing, or overlapping vocabulary as these recently generated titles in this batch: [${historyTitles.slice(-5).join(" | ")}]. Make this pin feel creatively distinct.` 
+                                : "";
+
                             const textPrompt = `
 You are an expert Pinterest marketer. Analyze this destination URL conceptually: ${url}
 (You don't need to visit it, just infer from the URL slug/name if needed).
 ${nicheInstruction}
 ${variationPrompt}
 ${boardsInstruction}
+${historyPrompt}
 
-CRITICAL RULE: DO NOT use generic AI buzzwords like "Chic", "Elevated", "Stunning", "Captivating", or "Trendy" in ANY of the generated text (title, shortOverlayTitle, description, imagePrompt).
+CRITICAL RULES:
+1. The subject for the pins and images MUST ALWAYS be female unless the URL/topic explicitly states otherwise (e.g. 'mens'). Use feminine pronouns (she/her) in descriptions.
+2. DO NOT use generic AI buzzwords like "Chic", "Elevated", "Stunning", "Captivating", or "Trendy" in ANY of the generated text (title, shortOverlayTitle, description, imagePrompt).
+
+CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". Ensure the description flows naturally with this tone so that multiple similar topics do not sound repetitive.
 
 // Return ONLY a valid raw JSON object. NO markdown code blocks. NO backticks.
 {${categorySchemaField}
@@ -429,6 +447,7 @@ CRITICAL RULE: DO NOT use generic AI buzzwords like "Chic", "Elevated", "Stunnin
                                         const generatedText = resultJson.candidates[0].content.parts[0].text.trim();
                                         const cleanJsonStr = generatedText.replace(/^```json/i, '').replace(/```$/g, '').trim();
                                         textData = JSON.parse(cleanJsonStr);
+                                        if (textData && textData.title) historyTitles.push(textData.title);
                                         success = true;
                                         console.log(`[SUCCESS] Gemini ${modelInfo.m} worked!`);
                                         break;

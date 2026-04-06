@@ -5,7 +5,7 @@ import { FiCalendar, FiClock, FiShuffle } from 'react-icons/fi';
 
 export default function SchedulingTools({ pins, onApplySchedule }) {
     const [startDate, setStartDate] = useState('');
-    const [scheduleMode, setScheduleMode] = useState('interval'); // 'interval' | 'random'
+    const [scheduleMode, setScheduleMode] = useState('interval'); // 'interval' | 'spread'
     const [intervalDays, setIntervalDays] = useState(1);
 
     const handleApply = () => {
@@ -26,11 +26,22 @@ export default function SchedulingTools({ pins, onApplySchedule }) {
 
             if (scheduleMode === 'interval') {
                 scheduledDate.setDate(scheduledDate.getDate() + (index * intervalDays));
-            } else if (scheduleMode === 'random') {
-                // Random time between 8 AM and 10 PM (8 to 22)
-                const randomHour = Math.floor(Math.random() * (22 - 8)) + 8;
-                const randomMinute = Math.floor(Math.random() * 60);
-                scheduledDate.setHours(randomHour, randomMinute, 0);
+            } else if (scheduleMode === 'spread') {
+                const startHour = 8;
+                const endHour = 22;
+                const totalMinutes = (endHour - startHour) * 60;
+                
+                // Evenly space them out across the 14 hour window
+                const spacingMinutes = pins.length > 1 ? Math.floor(totalMinutes / pins.length) : 0;
+                
+                // Add jitter of +/- 7 minutes to make it look organic
+                let offsetMinutes = (startHour * 60) + (index * spacingMinutes);
+                offsetMinutes += Math.floor(Math.random() * 15) - 7;
+                
+                const hour = Math.floor(offsetMinutes / 60);
+                const minute = offsetMinutes % 60;
+                
+                scheduledDate.setHours(hour, minute, 0);
             }
 
             return {
@@ -76,13 +87,13 @@ export default function SchedulingTools({ pins, onApplySchedule }) {
                                 flex: 1,
                                 fontSize: '0.875rem',
                                 padding: '0.5rem',
-                                background: scheduleMode === 'random' ? 'var(--foreground)' : 'var(--input-bg)',
-                                color: scheduleMode === 'random' ? 'var(--background)' : 'var(--text-muted)',
+                                background: scheduleMode === 'spread' ? 'var(--foreground)' : 'var(--input-bg)',
+                                color: scheduleMode === 'spread' ? 'var(--background)' : 'var(--text-muted)',
                                 border: '1px solid var(--surface-border)'
                             }}
-                            onClick={() => setScheduleMode('random')}
+                            onClick={() => setScheduleMode('spread')}
                         >
-                            <FiShuffle /> Random
+                            <FiShuffle /> Spread Daily
                         </button>
                     </div>
                 </div>
@@ -116,8 +127,8 @@ export default function SchedulingTools({ pins, onApplySchedule }) {
                     </div>
                 )}
 
-                {scheduleMode === 'random' && (
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Pins will be randomly staggered between 8am and 10pm on the selected target date.</p>
+                {scheduleMode === 'spread' && (
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Pins will be evenly spread out between 8am and 10pm on the target date.</p>
                 )}
 
                 <button
