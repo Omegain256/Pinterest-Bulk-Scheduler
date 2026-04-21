@@ -43,7 +43,7 @@ async function applyTemplate(imageUrl, title, template, imgbbKey) {
     let resizedBuffer;
     try {
         resizedBuffer = await sharp(imageBuffer)
-            .resize(1000, 1500, { fit: 'cover', position: 'center' })
+            .resize(1080, 1920, { fit: 'cover', position: 'center' })
             .jpeg({ quality: 90 })
             .toBuffer();
     } catch (err) {

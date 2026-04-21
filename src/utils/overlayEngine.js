@@ -1,23 +1,46 @@
 /**
- * overlayEngine.js — Server-side only canvas overlay engine.
- * Templates match the 3 reference images exactly.
- * Imported ONLY by API route handlers — never by client components.
+ * overlayEngine.js — Server-side canvas overlay engine.
+ * Canvas: 1080 × 1920 (9:16 — standard Pinterest/Instagram format).
+ * Font:   Montserrat Bold (geometric sans-serif, Pinterest-standard).
+ * Imported ONLY by API route handlers, never by client components.
  */
 
 import { createCanvas, GlobalFonts } from '@napi-rs/canvas';
-import { interBoldBuffer } from '@/app/api/generate/font-data.js';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 // ── Font Bootstrap ────────────────────────────────────────────────────────────
 let _fontReady = false;
 function ensureFont() {
     if (_fontReady) return;
-    try { GlobalFonts.register(interBoldBuffer, 'Inter'); } catch (_) {}
+    try {
+        const buf = readFileSync(join(process.cwd(), 'src/utils/fonts/Montserrat-Bold.ttf'));
+        GlobalFonts.register(buf, 'Montserrat');
+    } catch (e) {
+        console.warn('[overlayEngine] Montserrat load failed, falling back to sans-serif:', e.message);
+    }
     _fontReady = true;
 }
 
+// ── Canvas constants — 9:16 ───────────────────────────────────────────────────
+const W = 1080;  // width
+const H = 1920;  // height  (9:16 ratio)
+
+// ── Fixed font size (140–160pt range, per user spec) ─────────────────────────
+const FONT_PX    = 150;           // main title font size in pixels
+const NUM_PX     = Math.round(FONT_PX * 0.68); // number is 68% of title size
+const PAD_X      = 80;            // horizontal padding (80px each side)
+const MAX_W      = W - PAD_X * 2; // max line width = 920px
+const LH         = FONT_PX * 1.06; // tight line height matching reference
+const NUM_LH     = NUM_PX * 1.12;
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Pixel-accurate line wrapping. ctx.font must be set first. */
+/**
+ * Pixel-accurate word wrapping. ctx.font MUST be set before calling.
+ * Groups as many words as fit on each line — NOT one-word-per-line.
+ * This keeps text at the fixed 150px size without taking over the whole image.
+ */
 function wrapByWidth(ctx, text, maxW) {
     const words = text.split(' ');
     const lines = [];
@@ -32,17 +55,20 @@ function wrapByWidth(ctx, text, maxW) {
 }
 
 /**
- * Auto-scale: largest font where all wrapped lines fit within maxW and
- * total line count is ≤ maxLines. Returns { size, lines }.
+ * Render text with subtle drop shadow (NO stroke — no black blob effect).
+ * ctx.font, ctx.textAlign, ctx.textBaseline must be set before calling.
  */
-function autoScale(ctx, text, maxW, maxLines = 4, startSize = 175, minSize = 44) {
-    for (let size = startSize; size >= minSize; size -= 4) {
-        ctx.font = `900 ${size}px Inter, sans-serif`;
-        const lines = wrapByWidth(ctx, text, maxW);
-        if (lines.length <= maxLines) return { size, lines };
-    }
-    ctx.font = `900 ${minSize}px Inter, sans-serif`;
-    return { size: minSize, lines: wrapByWidth(ctx, text, maxW).slice(0, maxLines) };
+function shadowFill(ctx, text, x, y, color = '#FFFFFF') {
+    ctx.shadowColor   = 'rgba(0, 0, 0, 0.62)';
+    ctx.shadowBlur    = 12;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 3;
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, y);
+    ctx.shadowColor   = 'transparent';
+    ctx.shadowBlur    = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
 }
 
 /** Extract a leading number token ("15", "28+") from a title string. */
@@ -67,44 +93,32 @@ function rrect(ctx, x, y, w, h, r) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Template 1 — Top Bar (no dark background)
-// Floating bold white text at the top of the image.
-// Number in gold, keywords in white. Subtle shadow — no stroke.
+// Template 1 — Top Bar
+// Floating bold white text at the top. Number in gold. Shadow-only.
 // ─────────────────────────────────────────────────────────────────────────────
 function buildTopBar(title) {
-    const W = 1000, H = 1500;
     const canvas = createCanvas(W, H);
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, W, H);
 
     const { num, rest } = parseNum(title);
     const keyText = (rest || title).toUpperCase();
-    const MAX_W = W - 80;
 
-    const { size: textSize, lines: keyLines } = autoScale(ctx, keyText, MAX_W, 4, 175);
-    const numSize = num ? Math.round(textSize * 0.68) : 0;
-    const LH = textSize * 1.1;
-    const NUM_LH = numSize * 1.15;
+    ctx.font = `900 ${FONT_PX}px Montserrat, sans-serif`;
+    const keyLines = wrapByWidth(ctx, keyText, MAX_W).slice(0, 4);
 
-    const specs = [
-        ...(num ? [{ text: num, px: numSize, lh: NUM_LH, color: '#C8961C' }] : []),
-        ...keyLines.map(l => ({ text: l, px: textSize, lh: LH, color: '#FFFFFF' })),
-    ];
-
-    let y = 72;
-    ctx.textAlign = 'center';
+    ctx.textAlign    = 'center';
     ctx.textBaseline = 'top';
 
+    const specs = [
+        ...(num ? [{ text: num, px: NUM_PX, lh: NUM_LH, color: '#C8961C' }] : []),
+        ...keyLines.map(l => ({ text: l, px: FONT_PX, lh: LH, color: '#FFFFFF' })),
+    ];
+
+    let y = 90; // top padding
     for (const spec of specs) {
-        ctx.font = `900 ${spec.px}px Inter, sans-serif`;
-        ctx.shadowColor = 'rgba(0,0,0,0.70)';
-        ctx.shadowBlur = 14;
-        ctx.shadowOffsetX = 2;
-        ctx.shadowOffsetY = 3;
-        ctx.fillStyle = spec.color;
-        ctx.fillText(spec.text, W / 2, y);
-        ctx.shadowColor = 'transparent';
-        ctx.shadowBlur = 0;
+        ctx.font = `900 ${spec.px}px Montserrat, sans-serif`;
+        shadowFill(ctx, spec.text, W / 2, y, spec.color);
         y += spec.lh;
     }
 
@@ -113,90 +127,65 @@ function buildTopBar(title) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Template 2 — CTA Button
-// Reference: "28+ HOLIDAY OUTFITS / SEE MORE" — large bold number + title text
-// float at the top with drop-shadow only (NO stroke). Deep-red pill at bottom.
+// Large number + title text at top (shadow-only). Deep-red pill "SEE MORE →"
+// anchored to the bottom.
 // ─────────────────────────────────────────────────────────────────────────────
 function buildCTA(title) {
-    const W = 1000, H = 1500;
     const canvas = createCanvas(W, H);
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, W, H);
 
     const { num, rest } = parseNum(title);
-    const PAD_X = 60;
-    const MAX_W = W - PAD_X * 2;
 
-    const setShadow = () => {
-        ctx.shadowColor = 'rgba(0,0,0,0.82)';
-        ctx.shadowBlur = 18;
-        ctx.shadowOffsetX = 3;
-        ctx.shadowOffsetY = 4;
-    };
-    const clearShadow = () => {
-        ctx.shadowColor = 'transparent';
-        ctx.shadowBlur = 0;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-    };
-
-    ctx.textAlign = 'center';
+    ctx.textAlign    = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillStyle = '#FFFFFF';
-    let y = 65;
+    ctx.fillStyle    = '#FFFFFF';
+
+    let y = 90;
 
     if (num) {
-        // ── Very large number at top ───────────────────────────────────
-        const NS = 175;
-        ctx.font = `900 ${NS}px Inter, sans-serif`;
-        setShadow();
-        ctx.fillText(num, W / 2, y);
-        clearShadow();
+        // Large number first
+        const NS = Math.round(FONT_PX * 1.15); // number slightly bigger for CTA
+        ctx.font = `900 ${NS}px Montserrat, sans-serif`;
+        shadowFill(ctx, num, W / 2, y);
         y += NS * 1.1;
 
-        // ── Title text — auto-scaled, wraps naturally ──────────────────
-        const { size: ts, lines } = autoScale(ctx, (rest || '').toUpperCase(), MAX_W, 3, 130);
-        const LH = ts * 1.12;
-        ctx.font = `900 ${ts}px Inter, sans-serif`;
-        setShadow();
+        ctx.font = `900 ${FONT_PX}px Montserrat, sans-serif`;
+        const lines = wrapByWidth(ctx, (rest || '').toUpperCase(), MAX_W).slice(0, 3);
         for (const line of lines) {
-            ctx.fillText(line, W / 2, y);
+            shadowFill(ctx, line, W / 2, y);
             y += LH;
         }
-        clearShadow();
     } else {
-        // ── No number — full title auto-scaled ────────────────────────
-        const { size: ts, lines } = autoScale(ctx, title.toUpperCase(), MAX_W, 3, 135);
-        const LH = ts * 1.12;
-        ctx.font = `900 ${ts}px Inter, sans-serif`;
-        setShadow();
+        ctx.font = `900 ${FONT_PX}px Montserrat, sans-serif`;
+        const lines = wrapByWidth(ctx, title.toUpperCase(), MAX_W).slice(0, 4);
         for (const line of lines) {
-            ctx.fillText(line, W / 2, y);
+            shadowFill(ctx, line, W / 2, y);
             y += LH;
         }
-        clearShadow();
     }
 
-    // ── Deep-red pill CTA button at bottom ────────────────────────────
-    const BW = 840, BH = 118, BR = 60;
+    // ── Deep-red pill button at bottom ───────────────────────────────────
+    const BW = 900, BH = 130, BR = 65;
     const BX = (W - BW) / 2;
-    const BY = H - BH - 90;
+    const BY = H - BH - 110;
 
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.35)';
-    ctx.shadowBlur = 22;
-    ctx.shadowOffsetY = 10;
+    ctx.shadowColor   = 'rgba(0,0,0,0.35)';
+    ctx.shadowBlur    = 24;
+    ctx.shadowOffsetY = 12;
     rrect(ctx, BX, BY, BW, BH, BR);
     ctx.fillStyle = '#C91C1C';
     ctx.fill();
 
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
+    ctx.shadowColor   = 'transparent';
+    ctx.shadowBlur    = 0;
     ctx.shadowOffsetY = 0;
 
-    ctx.font = '800 64px Inter, sans-serif';
-    ctx.textAlign = 'center';
+    ctx.font         = `800 70px Montserrat, sans-serif`;
+    ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#FFFFFF';
+    ctx.fillStyle    = '#FFFFFF';
     ctx.fillText('SEE MORE \u2192', W / 2, BY + BH / 2);
     ctx.restore();
 
@@ -206,73 +195,42 @@ function buildCTA(title) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Template 3 — Big Bold Center
 // Exact match to reference: "15 AIRPORT OUTFIT IDEAS"
-// • One word per line, strictly
-// • Font auto-scales so the longest word fills ~88% of canvas width
-// • Number at 68% of keyword size (matches reference proportion)
-// • Line height 1.06× (tight, like reference — not spaced out)
-// • Bottom-anchored: block ends at 91% of canvas height
-// • Pure white, drop-shadow only — NO stroke
+// • Font: Montserrat Bold, FIXED at 150px (140–160pt spec)
+// • Text wraps with wrapByWidth — NOT one-word-per-line (prevents takeover)
+// • Max 4 lines hard cap
+// • Center-aligned, bottom-anchored so block ends at ~88% of canvas height
+// • Drop shadow only — NO stroke
 // ─────────────────────────────────────────────────────────────────────────────
 function buildBigCenter(title) {
-    const W = 1000, H = 1500;
     const canvas = createCanvas(W, H);
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, W, H);
 
     const { num, rest } = parseNum(title);
-    // Each word gets its own line — exactly as in the reference
-    const words = (rest || title).toUpperCase().trim().split(/\s+/).filter(Boolean);
+    const keyText = (rest || title).toUpperCase();
 
-    // Max usable width: 60px padding per side (matches reference visual margins)
-    const MAX_W = W - 120;
-
-    // Find the largest font where EVERY individual word fits within MAX_W.
-    // Starting at 185px (at 200px, 7-letter words overflow; this gives headroom).
-    let fontSize = 185;
-    while (fontSize >= 44) {
-        ctx.font = `900 ${fontSize}px Inter, sans-serif`;
-        if (words.every(w => ctx.measureText(w).width <= MAX_W)) break;
-        fontSize -= 2; // 2px steps for finer precision
-    }
-
-    // Number is 68% of keyword size — matches the "15" proportion in reference
-    const numSize  = num ? Math.round(fontSize * 0.68) : 0;
-    // Tight line heights matching the reference (1.06× for keywords, 1.12× for num)
-    const LH       = fontSize * 1.06;
-    const NUM_LH   = numSize  * 1.12;
+    // Fixed 150px — matches the 140-160pt spec. NOT auto-scaled to fill width.
+    ctx.font = `900 ${FONT_PX}px Montserrat, sans-serif`;
+    const keyLines = wrapByWidth(ctx, keyText, MAX_W).slice(0, 4);
 
     const specs = [
-        ...(num ? [{ text: num, px: numSize, lh: NUM_LH }] : []),
-        ...words.map(w => ({ text: w, px: fontSize, lh: LH })),
+        ...(num ? [{ text: num, px: NUM_PX, lh: NUM_LH }] : []),
+        ...keyLines.map(l => ({ text: l, px: FONT_PX, lh: LH })),
     ];
 
     const totalH = specs.reduce((s, l) => s + l.lh, 0);
 
-    // Bottom-anchor: text block ends at 91% of canvas height.
-    // This places the block in the lower portion of the image, exactly like the reference.
-    // Applied minimum: top of block never higher than 10% from top.
-    let y = H * 0.91 - totalH;
-    if (y < H * 0.10) y = H * 0.10;
+    // Bottom-anchor: block ends at 88% of canvas height
+    // For a 4-line block this puts start at ~52–56% — lower-center like reference
+    let y = H * 0.88 - totalH;
+    if (y < H * 0.10) y = H * 0.10; // never above top 10%
 
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'top';
 
     for (const spec of specs) {
-        ctx.font = `900 ${spec.px}px Inter, sans-serif`;
-
-        // Drop-shadow only — NO stroke (avoids the black blob effect)
-        ctx.shadowColor   = 'rgba(0, 0, 0, 0.60)';
-        ctx.shadowBlur    = 10;
-        ctx.shadowOffsetX = 2;
-        ctx.shadowOffsetY = 3;
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillText(spec.text, W / 2, y);
-
-        ctx.shadowColor   = 'transparent';
-        ctx.shadowBlur    = 0;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-
+        ctx.font = `900 ${spec.px}px Montserrat, sans-serif`;
+        shadowFill(ctx, spec.text, W / 2, y);
         y += spec.lh;
     }
 
@@ -280,8 +238,7 @@ function buildBigCenter(title) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Template 4 — Minimal
-// No overlay — caller keeps the original image URL unchanged.
+// Template 4 — Minimal (no overlay)
 // ─────────────────────────────────────────────────────────────────────────────
 function buildMinimal() { return null; }
 
@@ -298,6 +255,10 @@ export function generateOverlayBuffer(title, template) {
         case 'cta_button': return buildCTA(title);
         case 'big_center': return buildBigCenter(title);
         case 'minimal':    return buildMinimal();
-        default:           return buildTopBar(title);
+        default:           return buildBigCenter(title);
     }
 }
+
+// Export canvas dimensions so the route can use them for sharp resize
+export const CANVAS_W = W;
+export const CANVAS_H = H;
