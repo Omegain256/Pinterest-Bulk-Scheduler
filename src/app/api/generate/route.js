@@ -6,25 +6,7 @@ import { generateOverlayBuffer } from '@/utils/overlayEngine.js';
 
 // genAI will be initialized dynamically per-request to support user-provided keys
 
-/defs>
-            <rect width="1000" height="1500" fill="url(#g)"/>
-            ${bigText}
-            ${subTexts}
-        </svg>`;
-    }
 
-    // ── Fallback ─────────────────────────────────────────────────────────────
-    const lines = wrapWords(title, 20).slice(0, 3);
-    const startY = 1380 - (lines.length - 1) * 92;
-    const texts = lines.map((l, i) =>
-        `<text x="70" y="${startY + i * 92}" font-family="'Liberation Sans', 'DejaVu Sans', Arial, sans-serif" font-weight="900" font-size="84" fill="#ffffff" stroke="rgba(0,0,0,0.65)" stroke-width="4" stroke-linejoin="round" paint-order="stroke fill">${esc(l)}</text>`
-    ).join('');
-    return `<svg width="1000" height="1500" xmlns="http://www.w3.org/2000/svg">
-        <defs><linearGradient id="g" x1="0%" y1="42%" x2="0%" y2="100%"><stop offset="0%" stop-color="rgba(0,0,0,0)"/><stop offset="100%" stop-color="rgba(0,0,0,0.85)"/></linearGradient></defs>
-        <rect width="1000" height="1500" fill="url(#g)"/>
-        ${texts}
-    </svg>`;
-} // end legacy stub
 
 export async function POST(req) {
     try {
