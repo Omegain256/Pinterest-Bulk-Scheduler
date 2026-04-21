@@ -57,16 +57,29 @@ function wrapByWidth(ctx, text, maxW) {
 }
 
 /**
- * Render text with subtle drop shadow (NO stroke — no black blob effect).
+ * Render text with thin stroke + drop shadow + white fill.
+ * Thin stroke (lineWidth ~5px) guarantees readability on any background
+ * including completely white images. NOT the heavy 26px from before.
  * ctx.font, ctx.textAlign, ctx.textBaseline must be set before calling.
  */
 function shadowFill(ctx, text, x, y, color = '#FFFFFF') {
-    ctx.shadowColor   = 'rgba(0, 0, 0, 0.62)';
-    ctx.shadowBlur    = 12;
+    // 1. Subtle drop shadow
+    ctx.shadowColor   = 'rgba(0, 0, 0, 0.55)';
+    ctx.shadowBlur    = 14;
     ctx.shadowOffsetX = 2;
     ctx.shadowOffsetY = 3;
+
+    // 2. Thin dark stroke first (underneath fill) for light-background readability
+    ctx.lineWidth     = 6;
+    ctx.strokeStyle   = 'rgba(0, 0, 0, 0.70)';
+    ctx.lineJoin      = 'round';
+    ctx.strokeText(text, x, y);
+
+    // 3. White fill on top
     ctx.fillStyle = color;
     ctx.fillText(text, x, y);
+
+    // Reset
     ctx.shadowColor   = 'transparent';
     ctx.shadowBlur    = 0;
     ctx.shadowOffsetX = 0;
