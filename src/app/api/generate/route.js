@@ -1,273 +1,12 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import sharp from 'sharp';
-import { createCanvas, GlobalFonts } from '@napi-rs/canvas';
-import { interBoldBuffer } from './font-data.js';
-
-// Register the Inter font from the embedded base64 buffer.
-// This is platform-agnostic: no file paths, no process.cwd(), no filesystem access.
-GlobalFonts.register(interBoldBuffer, 'Inter');
-console.log('[Canvas] Font registered. Families count:', GlobalFonts.families?.length ?? 'N/A');
+import { generateOverlayBuffer } from '@/utils/overlayEngine.js';
 
 
 // genAI will be initialized dynamically per-request to support user-provided keys
 
-// ─── Canvas Overlay Engine ───────────────────────────────────────────────────
-// Draws niche-specific Pinterest text overlays using @napi-rs/canvas.
-// Returns a PNG Buffer that sharp can composite on any platform (no librsvg needed).
-
-function wrapWords(text, maxChars) {
-    const words = text.split(' ');
-    const lines = [];
-    let cur = words[0] || '';
-    for (let i = 1; i < words.length; i++) {
-        if ((cur + ' ' + words[i]).length <= maxChars) {
-            cur += ' ' + words[i];
-        } else {
-            lines.push(cur);
-            cur = words[i];
-        }
-    }
-    lines.push(cur);
-    return lines;
-}
-
-// Draw a vertical gradient rect filling the canvas
-function drawGradient(ctx, w, h, fromY, opacity) {
-    const grad = ctx.createLinearGradient(0, fromY, 0, h);
-    grad.addColorStop(0, 'rgba(0,0,0,0)');
-    grad.addColorStop(1, `rgba(0,0,0,${opacity})`);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, fromY, w, h - fromY);
-}
-
-// Draw bold text with drop shadow
-function drawText(ctx, text, x, y, { fontSize = 84, weight = 'bold', color = '#ffffff', strokeColor = 'rgba(0,0,0,0.9)', shadowBlur = 0, shadowOpacity = 0, strokeWidth = 0, align = 'center' } = {}) {
-    ctx.save();
-    ctx.font = `${weight} ${fontSize}px Inter, sans-serif`;
-    ctx.textAlign = align;
-    ctx.textBaseline = 'middle';
-    
-    if (shadowBlur > 0) {
-        ctx.shadowColor = `rgba(0,0,0,${shadowOpacity})`;
-        ctx.shadowBlur = shadowBlur;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 4;
-    }
-
-    if (strokeWidth > 0) {
-        ctx.strokeStyle = strokeColor;
-        ctx.lineWidth = strokeWidth * 2;
-        ctx.lineJoin = 'round';
-        ctx.lineCap = 'round';
-        ctx.strokeText(text, x, y);
-    }
-    
-    ctx.fillStyle = color;
-    ctx.fillText(text, x, y);
-    ctx.restore();
-}
-
-function drawSparkle(ctx, x, y, size) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.beginPath();
-    for (let i = 0; i < 4; i++) {
-        ctx.rotate(Math.PI / 2);
-        ctx.quadraticCurveTo(0, 0, size, 0);
-        ctx.quadraticCurveTo(0, 0, 0, size);
-    }
-    ctx.fillStyle = '#FFD700';
-    ctx.fill();
-    ctx.restore();
-}
-
-function drawArrowShape(ctx, x, y, size) {
-    ctx.save();
-    ctx.translate(x, y);
-    
-    // Define the arrow path (pointing right)
-    function arrowPath(context) {
-        context.beginPath();
-        context.moveTo(-size * 0.8, -size * 0.25);
-        context.lineTo(size * 0.2, -size * 0.25);
-        context.lineTo(size * 0.2, -size * 0.6);
-        context.lineTo(size * 1.1, 0);
-        context.lineTo(size * 0.2, size * 0.6);
-        context.lineTo(size * 0.2, size * 0.25);
-        context.lineTo(-size * 0.8, size * 0.25);
-        context.closePath();
-    }
-
-    // Shadow/Outline
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 14;
-    arrowPath(ctx);
-    ctx.stroke();
-
-    // Fill
-    ctx.fillStyle = '#ffffff';
-    arrowPath(ctx);
-    ctx.fill();
-    
-    ctx.restore();
-}
-
-async function generateTextOverlayBuffer(title, category) {
-    const W = 1000, H = 1500;
-    const canvas = createCanvas(W, H);
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, W, H);
-
-    // ── Pre-process Text ────────────────────────────────────────────────────
-    const words = title.split(' ');
-    const lines = [];
-    if (words.length <= 2) {
-        lines.push(title);
-    } else if (words.length <= 4) {
-        lines.push(words.slice(0, words.length - 2).join(' '));
-        lines.push(words[words.length - 2]);
-        lines.push(words[words.length - 1]);
-    } else {
-        lines.push(...wrapWords(title, 14).slice(0, 3));
-    }
-
-    // ── Layout Constants ────────────────────────────────────────────────────
-    const fontSize = 110;
-    const lineH = 135;
-    const startY = 880 - ((lines.length - 1) * lineH) / 2;
-
-    // ── Draw Sparkles (Background) ──────────────────────────────────────────
-    const sparkles = [
-        { x: 260, y: startY - 40, size: 35 },
-        { x: 860, y: startY + 60, size: 25 },
-        { x: 200, y: startY + 280, size: 30 },
-        { x: 740, y: startY + 360, size: 40 },
-        { x: 120, y: startY + 550, size: 20 },
-        { x: 920, y: startY + 120, size: 30 }
-    ];
-    sparkles.forEach(s => drawSparkle(ctx, s.x, s.y, s.size));
-
-    // ── Draw Main Text ──────────────────────────────────────────────────────
-    lines.forEach((line, i) => {
-        drawText(ctx, line, W / 2, startY + i * lineH, {
-            fontSize,
-            weight: '900',
-            strokeWidth: 10,
-            strokeColor: '#000000',
-            align: 'center'
-        });
-    });
-
-    // ── Draw Arrow ──────────────────────────────────────────────────────────
-    const arrowY = startY + lines.length * lineH + 60;
-    drawArrowShape(ctx, W / 2, arrowY, 60);
-
-    return canvas.toBuffer('image/png');
-}
-
-// ── legacy stub kept for reference — no longer used
-function generateSVGOverlay(title, category) {
-    // ── Style 1: Beauty & Makeup ─────────────────────────────────────────────
-    // Bold white text, bottom-left, no box. Dark clothing in photo = natural contrast.
-    if (category === 'Beauty & Makeup') {
-        const lines = wrapWords(title, 16).slice(0, 3);
-        const lineH = 105;
-        const startY = 1385 - (lines.length - 1) * lineH;
-        const texts = lines.map((l, i) =>
-            `<text x="60" y="${startY + i * lineH}" font-family="'Liberation Sans', 'DejaVu Sans', Arial, sans-serif" font-weight="900" font-size="100" fill="#ffffff" stroke="rgba(0,0,0,0.65)" stroke-width="4" stroke-linejoin="round" paint-order="stroke fill" filter="url(#sh)">${esc(l)}</text>`
-        ).join('');
-        return `<svg width="1000" height="1500" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-                <filter id="sh"><feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="rgba(0,0,0,0.95)"/></filter>
-                <linearGradient id="g" x1="0%" y1="54%" x2="0%" y2="100%">
-                    <stop offset="0%" stop-color="rgba(0,0,0,0)"/>
-                    <stop offset="100%" stop-color="rgba(0,0,0,0.70)"/>
-                </linearGradient>
-            </defs>
-            <rect width="1000" height="1500" fill="url(#g)"/>
-            ${texts}
-        </svg>`;
-    }
-
-    // ── Style 2: Hair Styling ────────────────────────────────────────────────
-    // Black bold text inside a white rect with thick black border, bottom-center.
-    if (category === 'Hair Styling') {
-        const lines = wrapWords(title, 24).slice(0, 3);
-        const lineH = 72;
-        const pad = 36;
-        const boxW = 880;
-        const boxH = lines.length * lineH + pad * 2;
-        const boxX = (1000 - boxW) / 2;
-        const boxY = 1500 - boxH - 65;
-        const texts = lines.map((l, i) =>
-            `<text x="500" y="${boxY + pad + (i + 0.82) * lineH}" text-anchor="middle" font-family="'Liberation Sans', 'DejaVu Sans', Arial, sans-serif" font-weight="700" font-size="64" fill="#111111">${esc(l)}</text>`
-        ).join('');
-        return `<svg width="1000" height="1500" xmlns="http://www.w3.org/2000/svg">
-            <rect x="${boxX}" y="${boxY}" width="${boxW}" height="${boxH}" fill="#ffffff"/>
-            <rect x="${boxX}" y="${boxY}" width="${boxW}" height="${boxH}" fill="none" stroke="#111111" stroke-width="10"/>
-            ${texts}
-        </svg>`;
-    }
-
-    // ── Style 3: Fashion & Outfits ───────────────────────────────────────────
-    // ALL-CAPS bold white text centered in middle. Sparkle decorations. Arrow. Small subtitle.
-    if (category === 'Fashion & Outfits') {
-        const upper = title.toUpperCase();
-
-        // Dynamically scale font size if there are very long words (e.g. "CONCERT", "SCIENTIST")
-        const longestWordLen = Math.max(...upper.split(' ').map(w => w.length));
-        let fontSize = 118;
-        if (longestWordLen > 6) {
-            fontSize = Math.max(70, 118 - ((longestWordLen - 6) * 10)); // shrink by 10px per extra char, floor at 70
-        }
-
-        const lines = wrapWords(upper, 14).slice(0, 4);
-        const lineH = Math.round(fontSize * 1.1);
-        const midY = 660;
-        const startY = midY - ((lines.length - 1) * lineH) / 2;
-        const texts = lines.map((l, i) =>
-            `<text x="500" y="${startY + i * lineH}" text-anchor="middle" font-family="'Liberation Sans', 'DejaVu Sans', Arial, sans-serif" font-weight="900" font-size="${fontSize}" fill="#ffffff" stroke="rgba(0,0,0,0.65)" stroke-width="5" stroke-linejoin="round" paint-order="stroke fill" filter="url(#sh)">${esc(l)}</text>`
-        ).join('');
-        const arrowY = startY + lines.length * lineH + 50;
-        const sparkles = [
-            [875, midY - 230], [125, midY + 40], [865, midY + 200], [120, midY - 150]
-        ].map(([sx, sy]) => `<text x="${sx}" y="${sy}" text-anchor="middle" font-family="'DejaVu Sans', sans-serif" font-size="46" fill="#ffffff" opacity="0.88">&#10022;</text>`).join('');
-        const firstWord = title.split(' ')[0];
-        const subtitle = /^\d+/.test(firstWord) ? `${firstWord}+ inspirations` : 'See all inspirations';
-        return `<svg width="1000" height="1500" xmlns="http://www.w3.org/2000/svg">
-            <defs><filter id="sh"><feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="rgba(0,0,0,0.65)"/></filter></defs>
-            ${texts}
-            <text x="500" y="${arrowY}" text-anchor="middle" font-family="'Liberation Sans', 'DejaVu Sans', sans-serif" font-size="90" fill="#ffffff" filter="url(#sh)">&#8594;</text>
-            <text x="500" y="1452" text-anchor="middle" font-family="'Liberation Sans', 'DejaVu Sans', sans-serif" font-weight="300" font-size="45" fill="#ffffff" opacity="0.85">${esc(subtitle)}</text>
-            ${sparkles}
-        </svg>`;
-    }
-
-    // ── Style 4: Nails & Beauty ──────────────────────────────────────────────
-    // Mixed-weight serif: large number, smaller italic subtitle, large bold keyword. Bottom-left.
-    if (category === 'Nails & Beauty') {
-        const words = title.split(' ');
-        const bigWord = words[0] || '';
-        const restUpper = words.slice(1).join(' ').toUpperCase();
-        const restLines = wrapWords(restUpper, 13).slice(0, 3);
-        const bigText = `<text x="75" y="1060" font-family="'Liberation Serif', 'DejaVu Serif', Georgia, serif" font-weight="900" font-size="170" fill="#ffffff" stroke="rgba(0,0,0,0.65)" stroke-width="6" stroke-linejoin="round" paint-order="stroke fill" filter="url(#sh)">${esc(bigWord)}</text>`;
-        const subTexts = restLines.map((l, i) => {
-            const isFirst = i === 0;
-            const fs = isFirst ? 62 : 108;
-            const fw = isFirst ? '400' : '700';
-            const yp = isFirst ? 1150 : (1150 + 75 + (i - 1) * 112);
-            return `<text x="75" y="${yp}" font-family="'Liberation Serif', 'DejaVu Serif', Georgia, serif" font-weight="${fw}" font-size="${fs}" fill="#ffffff" stroke="rgba(0,0,0,0.65)" stroke-width="${isFirst ? 2 : 4}" stroke-linejoin="round" paint-order="stroke fill" filter="url(#sh)">${esc(l)}</text>`;
-        }).join('');
-        return `<svg width="1000" height="1500" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-                <filter id="sh"><feDropShadow dx="0" dy="3" stdDeviation="7" flood-color="rgba(0,0,0,0.85)"/></filter>
-                <linearGradient id="g" x1="0%" y1="58%" x2="0%" y2="100%">
-                    <stop offset="0%" stop-color="rgba(0,0,0,0)"/>
-                    <stop offset="100%" stop-color="rgba(0,0,0,0.65)"/>
-                </linearGradient>
-            </defs>
+/defs>
             <rect width="1000" height="1500" fill="url(#g)"/>
             ${bigText}
             ${subTexts}
@@ -564,8 +303,8 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
 
                                     rawBuffer = await sharp({
                                         create: {
-                                            width: 1000,
-                                            height: 1500,
+                                            width: 1080,
+                                            height: 1920,
                                             channels: 4,
                                             background: { r: 235, g: 235, b: 240, alpha: 1 }
                                         }
@@ -583,12 +322,13 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
                              
                              const prefix = (extractedNum && !alreadyHasNum) ? `${extractedNum} ` : '';
                              const overlayTitle = `${prefix}${cleanShortTitle}`.trim();
-                            const overlayPngBuffer = await generateTextOverlayBuffer(overlayTitle, resolvedCategory);
+                            const overlayPngBuffer = generateOverlayBuffer(overlayTitle, 'big_center');
 
                             // Composite Image + Canvas PNG overlay using sharp (PNG compositing works everywhere)
+                            const overlayPngReady = await sharp(overlayPngBuffer).png().toBuffer();
                             const compositedBuffer = await sharp(rawBuffer)
-                                .resize(1000, 1500, { fit: 'cover' })
-                                .composite([{ input: overlayPngBuffer, blend: 'over' }])
+                                .resize(1080, 1920, { fit: 'cover' })
+                                .composite([{ input: overlayPngReady, top: 0, left: 0, blend: 'over' }])
                                 .jpeg({ quality: 90 })
                                 .toBuffer();
 
@@ -608,6 +348,8 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
                             } else {
                                 console.error("ImgBB upload failed with status:", imgbbResponse.status);
                                 console.error("ImgBB upload failed body:", await imgbbResponse.text());
+                                // Fallback: Return Composited Image as Base64 Data URI so it still displays in the UI!
+                                finalImageUrl = `data:image/jpeg;base64,${compositedBuffer.toString('base64')}`;
                             }
 
                         } catch (imgErr) {
