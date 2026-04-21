@@ -437,3 +437,47 @@ html, body {
   text-align: center;
   min-height: 420px;
 }
+
+/* ── SIDEBAR 3-TAB NAV ───────────────────────────────────────── */
+:root {
+  --success: #22c55e;
+}
+
+.sidebar-tab-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  background: var(--background);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--surface-border);
+}
+
+.sidebar-tab-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.42rem 0.4rem;
+  border-radius: 8px;
+  font-size: 0.73rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.sidebar-tab-btn.active {
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 2px 8px rgba(108, 56, 255, 0.3);
+}
+
+.sidebar-tab-btn:not(.active):hover {
+  background: rgba(108, 56, 255, 0.07);
+  color: var(--foreground);
+}
