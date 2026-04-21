@@ -205,9 +205,13 @@ function buildCTA(title) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Template 3 — Big Bold Center
-// Reference: "15 AIRPORT OUTFIT IDEAS" — one word per line, white bold text,
-// NO stroke (drop-shadow only for contrast). Positioned lower-center.
-// Font auto-scaled so the longest single word fits the canvas width.
+// Exact match to reference: "15 AIRPORT OUTFIT IDEAS"
+// • One word per line, strictly
+// • Font auto-scales so the longest word fills ~88% of canvas width
+// • Number at 68% of keyword size (matches reference proportion)
+// • Line height 1.06× (tight, like reference — not spaced out)
+// • Bottom-anchored: block ends at 91% of canvas height
+// • Pure white, drop-shadow only — NO stroke
 // ─────────────────────────────────────────────────────────────────────────────
 function buildBigCenter(title) {
     const W = 1000, H = 1500;
@@ -216,21 +220,26 @@ function buildBigCenter(title) {
     ctx.clearRect(0, 0, W, H);
 
     const { num, rest } = parseNum(title);
-    // Each word gets its own line — exactly like the reference
+    // Each word gets its own line — exactly as in the reference
     const words = (rest || title).toUpperCase().trim().split(/\s+/).filter(Boolean);
-    const MAX_W = W - 80; // 40px padding per side
 
-    // Find the largest font where every single word fits within MAX_W
-    let fontSize = 200;
+    // Max usable width: 60px padding per side (matches reference visual margins)
+    const MAX_W = W - 120;
+
+    // Find the largest font where EVERY individual word fits within MAX_W.
+    // Starting at 185px (at 200px, 7-letter words overflow; this gives headroom).
+    let fontSize = 185;
     while (fontSize >= 44) {
         ctx.font = `900 ${fontSize}px Inter, sans-serif`;
         if (words.every(w => ctx.measureText(w).width <= MAX_W)) break;
-        fontSize -= 4;
+        fontSize -= 2; // 2px steps for finer precision
     }
 
-    const numSize = num ? Math.round(fontSize * 0.62) : 0;
-    const LH = fontSize * 1.12;       // line height for keyword lines
-    const NUM_LH = numSize * 1.18;    // slightly looser for number
+    // Number is 68% of keyword size — matches the "15" proportion in reference
+    const numSize  = num ? Math.round(fontSize * 0.68) : 0;
+    // Tight line heights matching the reference (1.06× for keywords, 1.12× for num)
+    const LH       = fontSize * 1.06;
+    const NUM_LH   = numSize  * 1.12;
 
     const specs = [
         ...(num ? [{ text: num, px: numSize, lh: NUM_LH }] : []),
@@ -239,27 +248,28 @@ function buildBigCenter(title) {
 
     const totalH = specs.reduce((s, l) => s + l.lh, 0);
 
-    // Center the text block at 60% of canvas height (lower-center like reference)
-    let y = H * 0.60 - totalH / 2;
-    if (y < H * 0.05) y = H * 0.05; // safety: never go above top 5%
+    // Bottom-anchor: text block ends at 91% of canvas height.
+    // This places the block in the lower portion of the image, exactly like the reference.
+    // Applied minimum: top of block never higher than 10% from top.
+    let y = H * 0.91 - totalH;
+    if (y < H * 0.10) y = H * 0.10;
 
-    ctx.textAlign = 'center';
+    ctx.textAlign    = 'center';
     ctx.textBaseline = 'top';
 
     for (const spec of specs) {
         ctx.font = `900 ${spec.px}px Inter, sans-serif`;
 
-        // ── Drop shadow only — NO stroke (avoids black blob effect) ───
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
-        ctx.shadowBlur = 10;
+        // Drop-shadow only — NO stroke (avoids the black blob effect)
+        ctx.shadowColor   = 'rgba(0, 0, 0, 0.60)';
+        ctx.shadowBlur    = 10;
         ctx.shadowOffsetX = 2;
         ctx.shadowOffsetY = 3;
         ctx.fillStyle = '#FFFFFF';
         ctx.fillText(spec.text, W / 2, y);
 
-        // Clear shadow before next line
-        ctx.shadowColor = 'transparent';
-        ctx.shadowBlur = 0;
+        ctx.shadowColor   = 'transparent';
+        ctx.shadowBlur    = 0;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
 
