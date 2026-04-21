@@ -78,15 +78,20 @@ async function applyTemplate(imageUrl, title, template, imgbbKey) {
         return imageUrl;
     }
 
-    // 5. Upload composited image to ImgBB
-    try {
-        const uploadedUrl = await uploadToImgBB(compositedBuffer, imgbbKey);
-        return uploadedUrl;
-    } catch (err) {
-        console.warn(`[TEMPLATE] ImgBB upload failed: ${err.message}`);
-        // Fall back: return original source image
-        return imageUrl;
+    // 5. Upload composited image to ImgBB (if key available), else return data URL
+    if (imgbbKey) {
+        try {
+            const uploadedUrl = await uploadToImgBB(compositedBuffer, imgbbKey);
+            return uploadedUrl;
+        } catch (err) {
+            console.warn(`[TEMPLATE] ImgBB upload failed: ${err.message}`);
+            // Fall through to base64 fallback
+        }
     }
+
+    // No ImgBB key or upload failed — return as base64 data URL so overlay still displays
+    const b64 = compositedBuffer.toString('base64');
+    return `data:image/jpeg;base64,${b64}`;
 }
 
 // ── URL Slug → Keyword Phrase ─────────────────────────────────────────────────
@@ -263,10 +268,20 @@ Return ONLY valid raw JSON. NO markdown, NO backticks.
 
                             const title = (textData.title || '').substring(0, 80);
 
-                            // ── Apply template overlay (server-side) ─────────────
+                            // ── Apply template overlay (always, regardless of ImgBB) ──
+                            // Step 1: Always apply the overlay and get the composited buffer
                             let finalImageUrl = image.src;
-                            if (effectiveImgbbKey) {
-                                finalImageUrl = await applyTemplate(image.src, title, template, effectiveImgbbKey);
+                            if (template !== 'minimal') {
+                                try {
+                                    const compositedBuffer = await applyTemplate(
+                                        image.src, title, template,
+                                        effectiveImgbbKey  // passed to upload step inside
+                                    );
+                                    finalImageUrl = compositedBuffer;
+                                } catch (overlayErr) {
+                                    console.error('[ROUTE] Overlay failed:', overlayErr.message);
+                                    // fall back to original image
+                                }
                             }
 
                             const generatedPin = {
