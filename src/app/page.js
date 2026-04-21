@@ -1,26 +1,30 @@
 "use client";
 
-import { useState } from 'react';
-import { FiLink, FiImage, FiSettings, FiDownload, FiPlay } from 'react-icons/fi';
-import DataGrid from '@/components/DataGrid';
+import { useState, useEffect } from 'react';
+import { FiImage, FiDownload, FiZap, FiSearch, FiTrash2, FiGrid, FiCalendar } from 'react-icons/fi';
+import PinCard from '@/components/PinCard';
+import PinModal from '@/components/PinModal';
 import SchedulingTools from '@/components/SchedulingTools';
+import UrlScraper from '@/components/UrlScraper';
 import { exportToPinterestCSV } from '@/utils/csvExport';
 
 export default function Home() {
+  const [inputMode, setInputMode] = useState('ai'); // 'ai' | 'scrape'
   const [urls, setUrls] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
   const [existingBoards, setExistingBoards] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPins, setGeneratedPins] = useState([]);
+  const [editingPinId, setEditingPinId] = useState(null);
 
   const [settings, setSettings] = useState({
     niche: 'Auto-Detect (AI)',
     aspectRatio: '9:16',
   });
 
-  // Load saved keys and boards from localStorage on mount
-  useState(() => {
+  // Load saved API keys and boards from localStorage on mount
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedApiKey = localStorage.getItem('pinterest_tool_api_key');
       const savedGeminiKey = localStorage.getItem('pinterest_tool_gemini_key');
@@ -29,12 +33,12 @@ export default function Home() {
       if (savedGeminiKey) setGeminiKey(savedGeminiKey);
       if (savedBoards) setExistingBoards(savedBoards);
     }
-  });
+  }, []);
 
+  // ── AI Generate handler (unchanged logic) ────────────────────────────────
   const handleGenerate = async () => {
     if (!urls.trim()) return;
 
-    // Save to localStorage
     localStorage.setItem('pinterest_tool_api_key', apiKey.trim());
     localStorage.setItem('pinterest_tool_gemini_key', geminiKey.trim());
     localStorage.setItem('pinterest_tool_existing_boards', existingBoards.trim());
@@ -42,12 +46,8 @@ export default function Home() {
     setIsGenerating(true);
 
     const boardList = existingBoards.split('\n').map(b => b.trim()).filter(b => b.length > 0);
-
-    // Split URLs by newline
     const urlList = urls.split('\n').filter(url => url.trim().length > 0);
-    setGeneratedPins([]); // Clear previous results
 
-    // Chunk size (e.g., 5 URLs per request to avoid Vercel timeouts and rate limits)
     const CHUNK_SIZE = 5;
     const chunks = [];
     for (let i = 0; i < urlList.length; i += CHUNK_SIZE) {
@@ -73,17 +73,15 @@ export default function Home() {
 
         if (!response.ok) {
           const errJson = await response.json().catch(() => ({}));
-          const errMsg = errJson.error || "Unknown server error";
-          console.error("Batch failed:", errMsg);
-          alert(`Batch generation failed: ${errMsg}`);
-          setIsGenerating(false); // Stop if a batch fails so they can fix settings
+          alert(`Batch generation failed: ${errJson.error || 'Unknown error'}`);
+          setIsGenerating(false);
           return;
         }
 
         const reader = response.body.getReader();
-        const decoder = new TextDecoder("utf-8");
+        const decoder = new TextDecoder('utf-8');
         let streamDone = false;
-        let buffer = "";
+        let buffer = '';
 
         while (!streamDone) {
           const { value, done } = await reader.read();
@@ -92,34 +90,34 @@ export default function Home() {
           if (value) {
             buffer += decoder.decode(value, { stream: true });
             const events = buffer.split('\n\n');
-            buffer = events.pop() || "";
+            buffer = events.pop() || '';
 
             for (const event of events) {
               if (event.startsWith('data: ')) {
-                const dataStr = event.substring(6);
                 try {
-                  const pin = JSON.parse(dataStr);
+                  const pin = JSON.parse(event.substring(6));
                   setGeneratedPins(prev => [...prev, pin]);
                 } catch (e) {
-                  console.error("Failed to parse incoming pin stream:", e);
+                  console.error('Failed to parse pin:', e);
                 }
               }
             }
           }
         }
-        // Small delay between chunks to respect rate limits if needed
+
         if (chunks.indexOf(chunk) < chunks.length - 1) {
           await new Promise(r => setTimeout(r, 1000));
         }
       }
     } catch (error) {
-      console.error("Generation error:", error);
-      alert("An error occurred during generation.");
+      console.error('Generation error:', error);
+      alert('An error occurred during generation.');
     } finally {
       setIsGenerating(false);
     }
   };
 
+  // ── Shared handlers (unchanged logic) ────────────────────────────────────
   const handleUpdatePin = (id, field, value) => {
     setGeneratedPins(prev => prev.map(pin =>
       pin.id === id ? { ...pin, [field]: value } : pin
@@ -130,7 +128,6 @@ export default function Home() {
     const pinToRegen = generatedPins.find(p => p.id === id);
     if (!pinToRegen) return;
 
-    // Mark as regenerating to show loading spinner on the button
     setGeneratedPins(prev => prev.map(p => p.id === id ? { ...p, isRegenerating: true } : p));
 
     const boardList = existingBoards.split('\n').map(b => b.trim()).filter(b => b.length > 0);
@@ -152,15 +149,14 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        alert("Failed to regenerate pin.");
         setGeneratedPins(prev => prev.map(p => p.id === id ? { ...p, isRegenerating: false } : p));
         return;
       }
 
       const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
+      const decoder = new TextDecoder('utf-8');
       let streamDone = false;
-      let buffer = "";
+      let buffer = '';
       let newPin = null;
 
       while (!streamDone) {
@@ -170,169 +166,315 @@ export default function Home() {
         if (value) {
           buffer += decoder.decode(value, { stream: true });
           const events = buffer.split('\n\n');
-          buffer = events.pop() || "";
+          buffer = events.pop() || '';
 
           for (const event of events) {
             if (event.startsWith('data: ')) {
-              const dataStr = event.substring(6);
               try {
-                newPin = JSON.parse(dataStr);
-              } catch (e) {
-                console.error("Parse error:", e);
-              }
+                newPin = JSON.parse(event.substring(6));
+              } catch {}
             }
           }
         }
       }
 
       if (newPin) {
-        // Keep the original ID to ensure stable React ordering/keys
         newPin.id = id;
         setGeneratedPins(prev => prev.map(p => p.id === id ? newPin : p));
       } else {
         setGeneratedPins(prev => prev.map(p => p.id === id ? { ...p, isRegenerating: false } : p));
       }
 
-    } catch (error) {
-      console.error("Regeneration error:", error);
+    } catch {
       setGeneratedPins(prev => prev.map(p => p.id === id ? { ...p, isRegenerating: false } : p));
     }
   };
 
   const boardList = existingBoards.split('\n').map(b => b.trim()).filter(b => b.length > 0);
+  const editingPin = editingPinId ? generatedPins.find(p => p.id === editingPinId) : null;
 
   return (
-    <main className="animate-fade-in" style={{ padding: '4rem 2rem', maxWidth: '1600px', margin: '0 auto' }}>
-      <header className="flex-col items-center" style={{ marginBottom: '3rem', textAlign: 'center', maxWidth: '800px', margin: '0 auto 3rem auto' }}>
-        <div style={{
-          background: 'var(--primary)',
-          padding: '1rem',
-          borderRadius: '16px',
-          display: 'inline-flex',
-          boxShadow: 'var(--shadow-neon)',
-          marginBottom: '1.5rem'
-        }}>
-          <FiImage size={28} color="white" />
-        </div>
-        <h1 style={{ fontSize: '3.5rem', margin: 0, fontWeight: 800, letterSpacing: '-0.04em', color: 'var(--foreground)', lineHeight: 1.1 }}>
-          Create rank-ready <br /> pins in minutes
-        </h1>
-        <p style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '1.25rem', marginTop: '1rem' }}>
-          Generate highly-optimized titles, descriptions, and AI visuals instantly.
-        </p>
-      </header>
+    <div className="layout-shell">
 
-      <div style={{ position: 'relative', maxWidth: '800px', margin: '0 auto' }}>
-        {/* Subtle Glow Behind Input */}
-        <div style={{
-          position: 'absolute',
-          top: '-20px',
-          left: '5%',
-          right: '5%',
-          bottom: '-20px',
-          background: 'var(--primary)',
-          filter: 'blur(60px)',
-          opacity: 0.15,
-          zIndex: 0,
-          borderRadius: '100px'
-        }}></div>
+      {/* ── LEFT SIDEBAR ─────────────────────────────────────────────────── */}
+      <aside className="sidebar">
 
-        <div className="glass-panel" style={{ padding: '2rem', zIndex: 1, position: 'relative', background: '#ffffff', borderRadius: 'var(--radius-xl)' }}>
-          <h2 className="flex items-center gap-2" style={{ fontSize: '1.1rem', marginBottom: '1rem', justifyContent: 'center', color: 'var(--text-muted)' }}>
-            <FiLink /> Paste your destination URLs below
-          </h2>
-          <textarea
-            className="glass-input"
-            style={{ width: '100%', minHeight: '180px', resize: 'vertical', fontSize: '1.1rem', border: '1px solid var(--surface-border)', background: '#fafafc', marginBottom: '1.5rem' }}
-            placeholder="https://example.com/blog/post-1&#10;https://example.com/product/item-2"
-            value={urls}
-            onChange={(e) => setUrls(e.target.value)}
-          />
-
-          <h2 className="flex items-center gap-2" style={{ fontSize: '1.1rem', marginBottom: '1rem', justifyContent: 'center', color: 'var(--text-muted)' }}>
-            <FiSettings /> Existing Pinterest Boards (one per line)
-          </h2>
-          <textarea
-            className="glass-input"
-            style={{ width: '100%', minHeight: '120px', resize: 'vertical', fontSize: '1rem', border: '1px solid var(--surface-border)', background: '#fafafc' }}
-            placeholder="Style Inspiration&#10;Beauty Tips&#10;Home Decor"
-            value={existingBoards}
-            onChange={(e) => setExistingBoards(e.target.value)}
-          />
-
-          <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', justifyContent: 'flex-end', alignItems: 'center' }}>
-            <div style={{ flex: 1, display: 'flex', gap: '1rem', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <input
-                  type="password"
-                  className="glass-input"
-                  style={{ flex: 1, fontSize: '1rem', padding: '1rem 1.5rem', borderRadius: '100px', background: '#ffffff', border: '1px solid var(--surface-border)' }}
-                  placeholder="Tool Access Key"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                />
-                <input
-                  type="password"
-                  className="glass-input"
-                  style={{ flex: 1, fontSize: '1rem', padding: '1rem 1.5rem', borderRadius: '100px', background: '#ffffff', border: '1px solid var(--surface-border)' }}
-                  placeholder="Your Gemini API Key"
-                  value={geminiKey}
-                  onChange={(e) => setGeminiKey(e.target.value)}
-                />
-              </div>
-              <select
-                className="glass-input"
-                style={{ width: '100%', fontSize: '1rem', padding: '1rem 1.5rem', borderRadius: '100px', background: '#ffffff', appearance: 'none', cursor: 'pointer' }}
-                value={settings.niche}
-                onChange={(e) => setSettings({ ...settings, niche: e.target.value })}
-              >
-                <option value="Auto-Detect (AI)">✨ Auto-Detect (AI)</option>
-                <option value="Beauty & Makeup">Beauty & Makeup</option>
-                <option value="Hair Styling">Hair Styling</option>
-                <option value="Fashion & Outfits">Fashion & Outfits</option>
-                <option value="Nails & Beauty">Nails & Beauty</option>
-              </select>
+        {/* Logo */}
+        <div className="sidebar-logo">
+          <div style={{
+            width: '38px', height: '38px',
+            background: 'var(--primary)',
+            borderRadius: '11px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: 'var(--shadow-neon)',
+            flexShrink: 0
+          }}>
+            <FiImage size={18} color="white" />
+          </div>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: '0.9rem', letterSpacing: '-0.025em', lineHeight: 1.2, color: 'var(--foreground)' }}>
+              Pin Scheduler
             </div>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 500 }}>AI Bulk Creator</div>
+          </div>
+        </div>
 
+        {/* ── Mode Toggle ── */}
+        <div className="mode-toggle">
+          <button
+            className={`mode-toggle-btn${inputMode === 'ai' ? ' active' : ''}`}
+            onClick={() => setInputMode('ai')}
+            id="mode-btn-ai"
+          >
+            <FiZap size={12} /> AI Generate
+          </button>
+          <button
+            className={`mode-toggle-btn${inputMode === 'scrape' ? ' active' : ''}`}
+            onClick={() => setInputMode('scrape')}
+            id="mode-btn-scrape"
+          >
+            <FiSearch size={12} /> Scrape URL
+          </button>
+        </div>
+
+        <div className="sidebar-divider" />
+
+        {/* ── Shared Settings ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+          <div>
+            <label className="sidebar-label">Niche</label>
+            <select
+              className="glass-input"
+              style={{ width: '100%', fontSize: '0.82rem', appearance: 'none', cursor: 'pointer', background: '#fafafc' }}
+              value={settings.niche}
+              onChange={e => setSettings({ ...settings, niche: e.target.value })}
+              id="niche-select"
+            >
+              <option value="Auto-Detect (AI)">✨ Auto-Detect (AI)</option>
+              <option value="Beauty & Makeup">Beauty &amp; Makeup</option>
+              <option value="Hair Styling">Hair Styling</option>
+              <option value="Fashion & Outfits">Fashion &amp; Outfits</option>
+              <option value="Nails & Beauty">Nails &amp; Beauty</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="sidebar-label">Pinterest Boards <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(one per line)</span></label>
+            <textarea
+              className="glass-input"
+              style={{ width: '100%', minHeight: '72px', resize: 'vertical', fontSize: '0.82rem', background: '#fafafc' }}
+              placeholder={'Style Inspiration\nBeauty Tips\nHome Decor'}
+              value={existingBoards}
+              onChange={e => setExistingBoards(e.target.value)}
+              id="boards-textarea"
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <input
+              type="password"
+              className="glass-input"
+              style={{ fontSize: '0.82rem', background: '#fafafc' }}
+              placeholder="Tool Access Key"
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              id="api-key-input"
+            />
+            <input
+              type="password"
+              className="glass-input"
+              style={{ fontSize: '0.82rem', background: '#fafafc' }}
+              placeholder="Your Gemini API Key"
+              value={geminiKey}
+              onChange={e => setGeminiKey(e.target.value)}
+              id="gemini-key-input"
+            />
+          </div>
+        </div>
+
+        <div className="sidebar-divider" />
+
+        {/* ── Mode-specific input area ── */}
+        {inputMode === 'ai' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div>
+              <label className="sidebar-label">Destination URLs <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(one per line)</span></label>
+              <textarea
+                className="glass-input"
+                style={{ width: '100%', minHeight: '110px', resize: 'vertical', fontSize: '0.82rem', background: '#fafafc' }}
+                placeholder={'https://example.com/blog/post-1\nhttps://example.com/product/item-2'}
+                value={urls}
+                onChange={e => setUrls(e.target.value)}
+                id="urls-textarea"
+              />
+            </div>
             <button
               className="btn btn-primary"
-              style={{ padding: '1rem 2rem', fontSize: '1.1rem', borderRadius: '100px', whiteSpace: 'nowrap' }}
+              style={{ width: '100%', borderRadius: '100px' }}
               onClick={handleGenerate}
               disabled={isGenerating || urls.trim().length === 0}
+              id="ai-generate-btn"
             >
-              {isGenerating ? (
-                <>Generating... <span className="animate-pulse">⏳</span></>
-              ) : (
-                <>Generate with AI <span style={{ fontSize: '1.2em' }}>→</span></>
-              )}
+              {isGenerating
+                ? <><span className="animate-pulse">⏳</span> Generating…</>
+                : <>Generate with AI <span style={{ fontSize: '1.1em' }}>→</span></>
+              }
             </button>
           </div>
-        </div>
-      </div>
+        ) : (
+          <UrlScraper
+            apiKey={apiKey}
+            geminiKey={geminiKey}
+            niche={settings.niche}
+            existingBoards={existingBoards}
+            onPinGenerated={(pin) => setGeneratedPins(prev => [...prev, pin])}
+            isGenerating={isGenerating}
+            setIsGenerating={setIsGenerating}
+          />
+        )}
 
-      {/* Data Grid Section (Only shows if there are pins) */}
-      {generatedPins.length > 0 && (
-        <div className="glass-panel animate-fade-in" style={{ padding: '1.5rem', marginTop: '4rem', zIndex: 1, position: 'relative', textAlign: 'left', width: '100%' }}>
-          <div className="flex justify-between items-center" style={{ marginBottom: '1.5rem' }}>
-            <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Review & Edit</h2>
-            <button
-              className="btn btn-primary"
-              onClick={() => exportToPinterestCSV(generatedPins)}
-              style={{ borderRadius: '100px' }}
-            >
-              <FiDownload /> Export CSV
-            </button>
-          </div>
-          <DataGrid pins={generatedPins} onUpdate={handleUpdatePin} onRegenerate={handleRegenerate} existingBoards={boardList} />
-
-          <div style={{ marginTop: '2rem', borderTop: '1px solid var(--surface-border)', paddingTop: '1.5rem' }}>
+        {/* ── Scheduling + Export (shown once pins exist) ── */}
+        {generatedPins.length > 0 && (
+          <>
+            <div className="sidebar-divider" />
             <SchedulingTools
               pins={generatedPins}
               onApplySchedule={(newPins) => setGeneratedPins(newPins)}
             />
+            <button
+              className="btn btn-primary"
+              style={{ width: '100%', borderRadius: '100px' }}
+              onClick={() => exportToPinterestCSV(generatedPins)}
+              id="export-csv-btn"
+            >
+              <FiDownload size={14} /> Export CSV
+            </button>
+          </>
+        )}
+
+      </aside>
+
+      {/* ── RIGHT CONTENT AREA ───────────────────────────────────────────── */}
+      <main className="content-area">
+
+        {/* Content header bar */}
+        <div className="content-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+            <FiGrid size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+            <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--foreground)' }}>
+              {generatedPins.length > 0
+                ? <>{generatedPins.length} {generatedPins.length === 1 ? 'pin' : 'pins'} generated</>
+                : 'Pin Preview Canvas'
+              }
+            </span>
+            {isGenerating && (
+              <span style={{
+                fontSize: '0.72rem',
+                color: 'var(--primary)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                background: 'rgba(108,56,255,0.08)',
+                borderRadius: '100px',
+                padding: '0.2rem 0.6rem',
+                fontWeight: 600
+              }}>
+                <span className="animate-pulse" style={{ display: 'inline-block' }}>●</span>
+                Generating…
+              </span>
+            )}
           </div>
+
+          {generatedPins.length > 0 && (
+            <button
+              onClick={() => { if (window.confirm('Clear all generated pins?')) setGeneratedPins([]); }}
+              style={{
+                fontSize: '0.78rem',
+                color: 'var(--danger)',
+                background: 'rgba(239,68,68,0.07)',
+                border: 'none',
+                borderRadius: '100px',
+                padding: '0.35rem 0.875rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                fontWeight: 600,
+                fontFamily: 'inherit',
+                transition: 'background 0.15s ease'
+              }}
+              id="clear-pins-btn"
+            >
+              <FiTrash2 size={12} /> Clear All
+            </button>
+          )}
         </div>
+
+        {/* Pin grid or empty state */}
+        {generatedPins.length > 0 ? (
+          <div className="pin-grid">
+            {generatedPins.map(pin => (
+              <PinCard
+                key={pin.id}
+                pin={pin}
+                onEdit={setEditingPinId}
+                onRegenerate={handleRegenerate}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state">
+            <div style={{
+              width: '64px', height: '64px',
+              background: 'rgba(108, 56, 255, 0.07)',
+              borderRadius: '18px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              marginBottom: '1.25rem'
+            }}>
+              <FiImage size={28} style={{ color: 'var(--primary)', opacity: 0.65 }} />
+            </div>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, letterSpacing: '-0.025em', color: 'var(--foreground)' }}>
+              Your pins will appear here
+            </h2>
+            <p style={{
+              color: 'var(--text-muted)',
+              marginTop: '0.5rem',
+              fontSize: '0.85rem',
+              maxWidth: '320px',
+              textAlign: 'center',
+              lineHeight: 1.65
+            }}>
+              Use <strong>AI Generate</strong> to create pins from destination URLs,<br />
+              or <strong>Scrape URL</strong> to harvest images from any page.
+            </p>
+
+            {/* Decorative pin skeleton placeholder cards */}
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '2rem', opacity: 0.35 }}>
+              {[2.2, 2.5, 2.1].map((ratio, i) => (
+                <div key={i} style={{
+                  width: '90px',
+                  aspectRatio: `2/${ratio * 1.5}`,
+                  borderRadius: '10px',
+                  background: `rgba(108, 56, 255, ${0.04 + i * 0.02})`,
+                  border: '1px solid rgba(108,56,255,0.08)'
+                }} />
+              ))}
+            </div>
+          </div>
+        )}
+
+      </main>
+
+      {/* ── Pin Edit Modal ── */}
+      {editingPin && (
+        <PinModal
+          pin={editingPin}
+          onClose={() => setEditingPinId(null)}
+          onUpdate={handleUpdatePin}
+          onRegenerate={handleRegenerate}
+          existingBoards={boardList}
+        />
       )}
-    </main>
+    </div>
   );
 }
