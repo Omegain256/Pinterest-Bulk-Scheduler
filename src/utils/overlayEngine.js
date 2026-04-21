@@ -14,10 +14,12 @@ let _fontReady = false;
 function ensureFont() {
     if (_fontReady) return;
     try {
-        const buf = readFileSync(join(process.cwd(), 'src/utils/fonts/Montserrat-Bold.ttf'));
+        const fontPath = join(process.cwd(), 'src/utils/fonts/Montserrat-Bold.ttf');
+        const buf = readFileSync(fontPath);
         GlobalFonts.register(buf, 'Montserrat');
+        console.log(`[overlayEngine] Montserrat Bold registered (${buf.length} bytes) from ${fontPath}`);
     } catch (e) {
-        console.warn('[overlayEngine] Montserrat load failed, falling back to sans-serif:', e.message);
+        console.error('[overlayEngine] FONT LOAD FAILED — text will use system fallback:', e.message);
     }
     _fontReady = true;
 }

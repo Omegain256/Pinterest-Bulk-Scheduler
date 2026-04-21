@@ -55,21 +55,26 @@ async function applyTemplate(imageUrl, title, template, imgbbKey) {
     let overlayBuffer;
     try {
         overlayBuffer = generateOverlayBuffer(title, template);
-        if (!overlayBuffer) return imageUrl; // safety check
+        if (!overlayBuffer) return imageUrl; // minimal template
+        console.log(`[TEMPLATE] Overlay generated: ${overlayBuffer.length} bytes, template=${template}`);
     } catch (err) {
-        console.warn(`[TEMPLATE] Overlay render failed: ${err.message}`);
+        console.error(`[TEMPLATE] Overlay render FAILED: ${err.message}`, err.stack);
         return imageUrl;
     }
 
-    // 4. Composite overlay on top of resized image
+    // 4. Composite overlay PNG on top of the resized image
+    // Pass overlay through sharp first so it correctly reads PNG alpha channel,
+    // then specify top-left placement (top:0, left:0) explicitly.
     let compositedBuffer;
     try {
+        const overlayPng = await sharp(overlayBuffer).png().toBuffer();
         compositedBuffer = await sharp(resizedBuffer)
-            .composite([{ input: overlayBuffer, blend: 'over' }])
+            .composite([{ input: overlayPng, top: 0, left: 0, blend: 'over' }])
             .jpeg({ quality: 88 })
             .toBuffer();
+        console.log(`[TEMPLATE] Composite success: ${compositedBuffer.length} bytes`);
     } catch (err) {
-        console.warn(`[TEMPLATE] Composite failed: ${err.message}`);
+        console.error(`[TEMPLATE] Composite FAILED: ${err.message}`, err.stack);
         return imageUrl;
     }
 
