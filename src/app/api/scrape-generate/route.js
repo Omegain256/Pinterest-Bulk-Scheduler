@@ -108,7 +108,7 @@ export async function POST(req) {
         const effectiveImgbbKey = (clientImgbbKey || process.env.IMGBB_API_KEY)?.trim();
         const templatePool = templates && templates.length > 0
             ? templates
-            : ['bold_bottom', 'centered_box', 'top_banner', 'minimal'];
+            : ['top_bar', 'cta_button', 'big_center', 'minimal'];
 
         if (!images || images.length === 0) {
             return NextResponse.json({ error: 'No images provided' }, { status: 400 });
@@ -170,15 +170,17 @@ ${variationPrompt}
 ${boardsInstruction}
 ${historyPrompt}
 
-RULES:
-1. Subject is female unless URL explicitly states otherwise.
-2. NO generic buzzwords: "Chic", "Elevated", "Stunning", "Captivating", "Trendy".
-3. Copywriting angle: "${randomAngle}"
-4. Title must be SHORT (max 70 chars) — it will be composited as text overlay on the image, so brevity matters.
+TITLE RULES (read every rule before writing):
+1. Write a SHORT, PUNCHY title — ideally under 60 characters, HARD MAX of 80 characters. Count carefully.
+2. Every title must be a fully formed, grammatically complete phrase. No incomplete sentences, no trailing ellipses, no cut-off words.
+3. Zero repetitive phrasing or similar sentence structures across variations. Each must feel like a different writer wrote it.
+4. Use intelligent angle shifts per variation — change the benefit highlighted, the audience addressed, the tone (aspirational vs. practical vs. witty), or the context (morning, travel, date night, etc.).
+5. BANNED words: "Chic", "Elevated", "Stunning", "Captivating", "Trendy", "Aesthetic". Use specific, vivid language instead.
+6. The title will be composited as large text directly onto the image — brevity is critical.
 
 Return ONLY valid raw JSON. NO markdown, NO backticks.
 {
-  "title": "Short engaging title. Max 70 chars.",
+  "title": "Punchy, fully formed title. Ideally under 60 chars, never over 80.",
   "description": "Compelling keyword-rich description, 100-500 chars. No hashtags.",
   "keywords": "comma, separated, 5-8, seo keywords",
   "generatedBoardName": "Pinterest board name"
@@ -224,7 +226,7 @@ Return ONLY valid raw JSON. NO markdown, NO backticks.
                                 };
                             }
 
-                            const title = (textData.title || '').substring(0, 70);
+                            const title = (textData.title || '').substring(0, 80);
 
                             // ── Apply template overlay (server-side) ─────────────
                             let finalImageUrl = image.src;

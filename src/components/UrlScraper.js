@@ -3,65 +3,105 @@
 import { useState } from 'react';
 import { FiSearch, FiCheck, FiImage } from 'react-icons/fi';
 
-// ── 4 Pin Templates ─────────────────────────────────────────────────────────
+// ── 4 Pin Templates — previews match the 3 reference images exactly ──────────
 const TEMPLATES = [
     {
-        id: 'bold_bottom',
-        name: 'Bold Bottom',
-        desc: 'Gradient scrim + bold title',
+        id: 'top_bar',
+        name: 'Top Bar',
+        desc: 'Dark bar + gold number',
         preview: (
-            <div style={{ width: '100%', height: '100%', background: 'linear-gradient(145deg, #c8b6ff 0%, #a78bfa 100%)', position: 'relative', display: 'flex', alignItems: 'flex-end' }}>
-                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '55%', background: 'linear-gradient(transparent, rgba(0,0,0,0.78))' }} />
-                <div style={{ position: 'relative', zIndex: 1, padding: '0.5rem 0.45rem 0.55rem', width: '100%' }}>
-                    <div style={{ background: 'rgba(255,255,255,0.95)', height: '5px', borderRadius: '3px', marginBottom: '4px', width: '82%' }} />
-                    <div style={{ background: 'rgba(255,255,255,0.7)', height: '4px', borderRadius: '3px', width: '58%', marginBottom: '6px' }} />
-                    <div style={{ width: '16px', height: '7px', background: 'white', borderRadius: '2px', margin: '0 auto' }} />
-                </div>
-                {/* Sparkle dots */}
-                <div style={{ position: 'absolute', top: '18%', left: '22%', width: '4px', height: '4px', background: '#FFD700', borderRadius: '50%' }} />
-                <div style={{ position: 'absolute', top: '30%', right: '18%', width: '3px', height: '3px', background: '#FFD700', borderRadius: '50%' }} />
-            </div>
-        ),
-    },
-    {
-        id: 'centered_box',
-        name: 'Center Box',
-        desc: 'White card over image',
-        preview: (
-            <div style={{ width: '100%', height: '100%', background: 'linear-gradient(145deg, #c8b6ff 0%, #a78bfa 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{
+                width: '100%', height: '100%',
+                background: 'linear-gradient(160deg, #b0a5e0 0%, #9580d4 100%)',
+                position: 'relative', display: 'flex', flexDirection: 'column'
+            }}>
+                {/* Dark top bar with gold number + white text lines */}
                 <div style={{
-                    background: 'rgba(255,255,255,0.93)',
-                    borderRadius: '5px',
-                    padding: '0.45rem 0.5rem',
-                    width: '76%',
-                    boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
-                    position: 'relative',
-                    overflow: 'hidden'
+                    background: 'rgba(6,6,6,0.87)',
+                    padding: '0.28rem 0.32rem',
+                    display: 'flex', alignItems: 'center', gap: '4px',
+                    flexShrink: 0,
                 }}>
-                    <div style={{ position: 'absolute', left: 0, top: '10%', bottom: '10%', width: '3px', background: '#6c38ff', borderRadius: '2px' }} />
-                    <div style={{ background: '#0b1021', height: '5px', borderRadius: '3px', marginBottom: '4px', width: '85%', marginLeft: '6px' }} />
-                    <div style={{ background: 'rgba(11,16,33,0.4)', height: '4px', borderRadius: '3px', width: '60%', marginLeft: '6px' }} />
+                    <span style={{
+                        color: '#C8961C', fontWeight: 900, fontSize: '0.8rem',
+                        fontFamily: 'sans-serif', lineHeight: 1, flexShrink: 0
+                    }}>8</span>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2.5px' }}>
+                        <div style={{ background: 'rgba(255,255,255,0.93)', height: '3.5px', borderRadius: '2px' }} />
+                        <div style={{ background: 'rgba(255,255,255,0.68)', height: '3.5px', borderRadius: '2px', width: '72%' }} />
+                    </div>
                 </div>
             </div>
         ),
     },
     {
-        id: 'top_banner',
-        name: 'Top Banner',
-        desc: 'Brand gradient strip on top',
+        id: 'cta_button',
+        name: 'CTA Button',
+        desc: 'Title on image + red CTA',
         preview: (
-            <div style={{ width: '100%', height: '100%', background: 'linear-gradient(145deg, #c8b6ff 0%, #a78bfa 100%)', position: 'relative' }}>
-                <div style={{
-                    background: 'linear-gradient(90deg, #3a1db0, #6c38ff)',
-                    padding: '0.4rem 0.5rem',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '3px',
-                }}>
-                    <div style={{ background: 'rgba(255,255,255,0.9)', height: '5px', borderRadius: '3px', width: '75%' }} />
-                    <div style={{ background: 'rgba(255,255,255,0.55)', height: '4px', borderRadius: '3px', width: '50%' }} />
+            <div style={{
+                width: '100%', height: '100%',
+                background: 'linear-gradient(160deg, #b0a5e0 0%, #9580d4 100%)',
+                position: 'relative', display: 'flex', flexDirection: 'column',
+            }}>
+                {/* Shadow-only title text near top */}
+                <div style={{ padding: '0.3rem 0.38rem 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2.5px' }}>
+                    <div style={{
+                        background: 'rgba(255,255,255,0.92)', height: '5.5px', borderRadius: '3px',
+                        width: '52%', boxShadow: '0 2px 5px rgba(0,0,0,0.6)'
+                    }} />
+                    <div style={{
+                        background: 'rgba(255,255,255,0.78)', height: '4.5px', borderRadius: '3px',
+                        width: '78%', boxShadow: '0 2px 4px rgba(0,0,0,0.5)'
+                    }} />
+                    <div style={{
+                        background: 'rgba(255,255,255,0.65)', height: '4.5px', borderRadius: '3px',
+                        width: '68%', boxShadow: '0 1px 4px rgba(0,0,0,0.4)'
+                    }} />
                 </div>
-                <div style={{ position: 'absolute', top: '10px', right: '8px', width: '3px', height: '3px', background: '#FFD700', borderRadius: '50%' }} />
+                {/* Red pill CTA button at bottom */}
+                <div style={{
+                    position: 'absolute', bottom: '5px', left: '6%', right: '6%',
+                    background: '#C91C1C', borderRadius: '100px',
+                    padding: '4px 0',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                    <div style={{ background: 'rgba(255,255,255,0.88)', height: '3.5px', borderRadius: '2px', width: '52%' }} />
+                </div>
+            </div>
+        ),
+    },
+    {
+        id: 'big_center',
+        name: 'Big Center',
+        desc: 'Massive centered text',
+        preview: (
+            <div style={{
+                width: '100%', height: '100%',
+                background: 'linear-gradient(160deg, #b0a5e0 0%, #9580d4 100%)',
+                position: 'relative',
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                gap: '2.5px',
+            }}>
+                {/* Number line — slightly smaller */}
+                <div style={{
+                    background: 'rgba(255,255,255,0.60)', height: '4px', borderRadius: '2px',
+                    width: '22%', boxShadow: '0 0 0 1px rgba(0,0,0,0.55)'
+                }} />
+                {/* Keyword lines — large */}
+                <div style={{
+                    background: 'rgba(255,255,255,0.96)', height: '7px', borderRadius: '3px',
+                    width: '90%', boxShadow: '0 0 0 1.5px rgba(0,0,0,0.6)'
+                }} />
+                <div style={{
+                    background: 'rgba(255,255,255,0.90)', height: '7px', borderRadius: '3px',
+                    width: '84%', boxShadow: '0 0 0 1.5px rgba(0,0,0,0.5)'
+                }} />
+                <div style={{
+                    background: 'rgba(255,255,255,0.82)', height: '7px', borderRadius: '3px',
+                    width: '76%', boxShadow: '0 0 0 1.5px rgba(0,0,0,0.4)'
+                }} />
             </div>
         ),
     },
@@ -72,12 +112,15 @@ const TEMPLATES = [
         preview: (
             <div style={{
                 width: '100%', height: '100%',
-                background: 'linear-gradient(145deg, #c8b6ff 0%, #a78bfa 100%)',
+                background: 'linear-gradient(160deg, #b0a5e0 0%, #9580d4 100%)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexDirection: 'column', gap: '4px'
             }}>
-                <FiImage size={16} color="rgba(255,255,255,0.7)" />
-                <div style={{ fontSize: '0.45rem', color: 'rgba(255,255,255,0.6)', fontFamily: 'sans-serif', letterSpacing: '0.05em' }}>NO TEXT</div>
+                <FiImage size={16} color="rgba(255,255,255,0.65)" />
+                <div style={{
+                    fontSize: '0.42rem', color: 'rgba(255,255,255,0.55)',
+                    fontFamily: 'sans-serif', letterSpacing: '0.06em', textTransform: 'uppercase'
+                }}>No text</div>
             </div>
         ),
     },
@@ -94,7 +137,7 @@ export default function UrlScraper({
     const [variationCount, setVariationCount] = useState(1);
     const [scrapeError, setScrapeError] = useState('');
     const [selectedTemplates, setSelectedTemplates] = useState(
-        new Set(['bold_bottom', 'centered_box', 'top_banner', 'minimal'])
+        new Set(['top_bar', 'cta_button', 'big_center', 'minimal'])
     );
 
     // ── Scrape handler ──────────────────────────────────────────────────────
@@ -227,28 +270,39 @@ export default function UrlScraper({
                     <button
                         id="scrape-find-btn"
                         className="btn btn-primary"
-                        style={{ padding: '0.5rem 0.875rem', fontSize: '0.8rem', borderRadius: 'var(--radius-md)', whiteSpace: 'nowrap', flexShrink: 0 }}
+                        style={{
+                            padding: '0.5rem 0.875rem', fontSize: '0.8rem',
+                            borderRadius: 'var(--radius-md)', whiteSpace: 'nowrap', flexShrink: 0
+                        }}
                         onClick={handleScrape}
                         disabled={isScraping || !scrapeUrl.trim()}
                     >
                         {isScraping
-                            ? <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><span className="animate-spin">⟳</span> Scanning</span>
-                            : <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><FiSearch size={13} /> Find</span>
+                            ? <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <span className="animate-spin">⟳</span> Scanning
+                            </span>
+                            : <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <FiSearch size={13} /> Find
+                            </span>
                         }
                     </button>
                 </div>
                 {scrapeError && (
-                    <p style={{ marginTop: '0.4rem', fontSize: '0.75rem', color: 'var(--danger)', display: 'flex', gap: '0.3rem' }}>
+                    <p style={{ marginTop: '0.4rem', fontSize: '0.75rem', color: 'var(--danger)' }}>
                         ⚠ {scrapeError}
                     </p>
                 )}
             </div>
 
-            {/* ── Template Picker (always visible in scrape mode) ── */}
+            {/* ── Template Picker ── */}
             <div>
-                <label className="sidebar-label">Pin Templates
-                    <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, marginLeft: '0.3rem', fontSize: '0.67rem' }}>
-                        (select any, applied randomly)
+                <label className="sidebar-label">
+                    Pin Templates
+                    <span style={{
+                        fontWeight: 400, textTransform: 'none', letterSpacing: 0,
+                        marginLeft: '0.3rem', fontSize: '0.67rem'
+                    }}>
+                        (select any — applied randomly)
                     </span>
                 </label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
@@ -262,7 +316,9 @@ export default function UrlScraper({
                                 style={{
                                     borderRadius: '8px',
                                     overflow: 'hidden',
-                                    border: active ? '2.5px solid var(--primary)' : '2px solid var(--surface-border)',
+                                    border: active
+                                        ? '2.5px solid var(--primary)'
+                                        : '2px solid var(--surface-border)',
                                     cursor: 'pointer',
                                     position: 'relative',
                                     transition: 'border-color 0.15s ease, transform 0.12s ease',
@@ -274,7 +330,7 @@ export default function UrlScraper({
                                     {t.preview}
                                 </div>
 
-                                {/* Checkmark badge */}
+                                {/* Selected badge */}
                                 {active && (
                                     <div style={{
                                         position: 'absolute', top: '5px', right: '5px',
@@ -286,10 +342,16 @@ export default function UrlScraper({
                                     </div>
                                 )}
 
-                                {/* Name + desc */}
+                                {/* Label */}
                                 <div style={{ padding: '0.35rem 0.4rem 0.4rem', background: 'var(--surface)' }}>
-                                    <div style={{ fontSize: '0.67rem', fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.2 }}>{t.name}</div>
-                                    <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginTop: '1px', lineHeight: 1.3 }}>{t.desc}</div>
+                                    <div style={{
+                                        fontSize: '0.67rem', fontWeight: 700,
+                                        color: 'var(--foreground)', lineHeight: 1.2
+                                    }}>{t.name}</div>
+                                    <div style={{
+                                        fontSize: '0.6rem', color: 'var(--text-muted)',
+                                        marginTop: '1px', lineHeight: 1.3
+                                    }}>{t.desc}</div>
                                 </div>
                             </div>
                         );
@@ -303,11 +365,18 @@ export default function UrlScraper({
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>
                             {scrapedImages.length} images found
-                            {selectedImages.size > 0 && <span style={{ marginLeft: '0.4rem', color: 'var(--primary)' }}>· {selectedImages.size} selected</span>}
+                            {selectedImages.size > 0 && (
+                                <span style={{ marginLeft: '0.4rem', color: 'var(--primary)' }}>
+                                    · {selectedImages.size} selected
+                                </span>
+                            )}
                         </span>
                         <button
                             onClick={toggleAllImages}
-                            style={{ fontSize: '0.72rem', color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, padding: '0.2rem 0' }}
+                            style={{
+                                fontSize: '0.72rem', color: 'var(--primary)', background: 'none',
+                                border: 'none', cursor: 'pointer', fontWeight: 600, padding: '0.2rem 0'
+                            }}
                         >
                             {selectedImages.size === scrapedImages.length ? 'Deselect All' : 'Select All'}
                         </button>
@@ -326,7 +395,9 @@ export default function UrlScraper({
                                 style={{
                                     position: 'relative', aspectRatio: '1', borderRadius: '5px',
                                     overflow: 'hidden', cursor: 'pointer',
-                                    outline: selectedImages.has(i) ? '2.5px solid var(--primary)' : '2px solid transparent',
+                                    outline: selectedImages.has(i)
+                                        ? '2.5px solid var(--primary)'
+                                        : '2px solid transparent',
                                     transition: 'outline 0.12s ease, transform 0.12s ease',
                                     transform: selectedImages.has(i) ? 'scale(0.93)' : 'scale(1)',
                                     background: 'var(--surface-border)'
@@ -353,14 +424,18 @@ export default function UrlScraper({
 
                     {/* Pins per image */}
                     <div>
-                        <label className="sidebar-label" style={{ marginBottom: '0.35rem' }}>Pins per image</label>
+                        <label className="sidebar-label" style={{ marginBottom: '0.35rem' }}>
+                            Pins per image
+                        </label>
                         <input
                             id="variation-count-input"
                             type="number" min="1" max="10"
                             className="glass-input"
                             style={{ width: '100%', fontSize: '0.875rem' }}
                             value={variationCount}
-                            onChange={e => setVariationCount(Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))}
+                            onChange={e =>
+                                setVariationCount(Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))
+                            }
                         />
                     </div>
 
