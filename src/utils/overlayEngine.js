@@ -1,6 +1,6 @@
 /**
  * overlayEngine.js — Server-side only canvas overlay engine.
- * Replicates 3 reference Pinterest pin styles exactly.
+ * Provides 4 Pinterest pin overlay templates matching reference images.
  * Imported ONLY by API route handlers — never by client components.
  */
 
@@ -17,7 +17,10 @@ function ensureFont() {
 
 // ── Shared Helpers ────────────────────────────────────────────────────────────
 
-/** Pixel-accurate text wrapping. ctx.font MUST be set before calling. */
+/**
+ * Pixel-accurate text wrapping. ctx.font MUST be set beforehand.
+ * Returns an array of lines that each fit within maxWidth.
+ */
 function wrapByWidth(ctx, text, maxW) {
     const words = text.split(' ');
     const lines = [];
@@ -35,13 +38,34 @@ function wrapByWidth(ctx, text, maxW) {
     return lines;
 }
 
-/** Split "15 Airport Outfit Ideas" → { num: "15", rest: "Airport Outfit Ideas" } */
+/**
+ * Auto-scale font size so that all provided text lines fit within maxW.
+ * Returns { size, lines } where lines are freshly wrapped at the chosen size.
+ * @param {object} ctx  - canvas 2D context
+ * @param {string} text - full text to wrap
+ * @param {number} maxW - maximum line width in pixels
+ * @param {number} maxLines - max allowed number of lines
+ * @param {number} startSize - starting (maximum) font size to try
+ * @param {number} minSize  - minimum font size floor
+ */
+function autoScale(ctx, text, maxW, maxLines = 4, startSize = 175, minSize = 48) {
+    for (let size = startSize; size >= minSize; size -= 4) {
+        ctx.font = `900 ${size}px Inter, sans-serif`;
+        const lines = wrapByWidth(ctx, text, maxW);
+        if (lines.length <= maxLines) return { size, lines };
+    }
+    // Fall back: use minSize and hard-cap lines
+    ctx.font = `900 ${minSize}px Inter, sans-serif`;
+    return { size: minSize, lines: wrapByWidth(ctx, text, maxW).slice(0, maxLines) };
+}
+
+/** Extract a leading number token ("15", "28+") from a title. */
 function parseNum(title) {
     const m = title.match(/^(\d+\+?)\s+(.+)/);
     return m ? { num: m[1], rest: m[2] } : { num: null, rest: title };
 }
 
-/** Draw a rounded-rect path; call fill/stroke after. */
+/** Draw a rounded-rect path — call fill/stroke after. */
 function rrect(ctx, x, y, w, h, r) {
     ctx.beginPath();
     ctx.moveTo(x + r, y);
@@ -56,85 +80,70 @@ function rrect(ctx, x, y, w, h, r) {
     ctx.closePath();
 }
 
-
+/**
+ * Render a single line of text with black stroke + colour fill.
+ * ctx.font, ctx.textAlign, ctx.textBaseline should be pre-set.
+ */
+function strokeFill(ctx, text, x, y, fillColor = '#FFFFFF', strokeRatio = 0.15) {
+    const sw = parseFloat(ctx.font) * strokeRatio;
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.92)';
+    ctx.lineWidth = sw;
+    ctx.lineJoin = 'round';
+    ctx.strokeText(text, x, y);
+    ctx.fillStyle = fillColor;
+    ctx.fillText(text, x, y);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Template 1 — Top Dark Bar
-// Reference: "8 AIRPORT OUTFIT IDEAS"
-// Dark opaque bar spanning the top. Leading number in warm gold on the left,
-// remaining title text in white wrapping to the right. ✦ sparkle bottom-right.
+// Template 1 — Top Bar (no dark background)
+// Reference: floating bold text positioned at the top of the image.
+// Number (if any) in warm gold, keywords in white. Both stroked black for
+// legibility on any background. Auto-scaled so nothing overflows.
 // ─────────────────────────────────────────────────────────────────────────────
 function buildTopBar(title) {
     const W = 1000, H = 1500;
     const canvas = createCanvas(W, H);
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, W, H);
+    ctx.clearRect(0, 0, W, H); // fully transparent — composited over the image
 
     const { num, rest } = parseNum(title);
-    const upRest = (rest || title).toUpperCase();
-    const PAD = 42;
-    const BAR_H = 248;
+    const keyText = (rest || title).toUpperCase();
+    const PAD_X = 60;
+    const MAX_W = W - PAD_X * 2;
 
-    // ── Dark opaque bar ──────────────────────────────────────────────────
-    ctx.fillStyle = 'rgba(6, 6, 6, 0.87)';
-    ctx.fillRect(0, 0, W, BAR_H);
+    // Auto-scale keyword text so it fits
+    const { size: textSize, lines: keyLines } = autoScale(ctx, keyText, MAX_W, 4, 175);
 
-    if (num) {
-        // ── Gold number ────────────────────────────────────────────────
-        const NUM_SIZE = 190;
-        ctx.font = `900 ${NUM_SIZE}px Inter, sans-serif`;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        const numW = ctx.measureText(num).width;
+    const numSize   = num ? Math.round(textSize * 0.68) : 0;
+    const LH_TEXT   = textSize * 1.1;
+    const LH_NUM    = numSize  * 1.15;
 
-        ctx.fillStyle = '#C8961C'; // warm gold matching reference
-        ctx.fillText(num, PAD, BAR_H / 2);
+    // Build render specs
+    const specs = [
+        ...(num ? [{ text: num,     px: numSize,   lh: LH_NUM,  color: '#C8961C' }] : []),
+        ...keyLines.map(l => ({ text: l, px: textSize, lh: LH_TEXT, color: '#FFFFFF' })),
+    ];
 
-        // ── White title text wrapping to the right ─────────────────────
-        const TXT = 86;
-        const gapAfterNum = 20;
-        const textX = PAD + numW + gapAfterNum;
-        const maxW = W - textX - PAD;
+    // Start at top with comfortable padding
+    const TOP_PAD = 72;
+    let y = TOP_PAD;
 
-        ctx.font = `900 ${TXT}px Inter, sans-serif`;
-        const lines = wrapByWidth(ctx, upRest, maxW).slice(0, 3);
-        const LH = TXT * 1.15;
-        const blockH = lines.length * LH;
-        let ly = (BAR_H - blockH) / 2 + LH / 2;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'top';
 
-        ctx.fillStyle = '#FFFFFF';
-        ctx.textAlign = 'left';
-        for (const line of lines) {
-            ctx.fillText(line, textX, ly);
-            ly += LH;
-        }
-    } else {
-        // ── No number — all white, centered ──────────────────────────
-        const TXT = 100;
-        ctx.font = `900 ${TXT}px Inter, sans-serif`;
-        const lines = wrapByWidth(ctx, upRest, W - PAD * 2).slice(0, 3);
-        const LH = TXT * 1.15;
-        const blockH = lines.length * LH;
-        let ly = (BAR_H - blockH) / 2 + LH / 2;
-
-        ctx.fillStyle = '#FFFFFF';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        for (const line of lines) {
-            ctx.fillText(line, W / 2, ly);
-            ly += LH;
-        }
+    for (const spec of specs) {
+        ctx.font = `900 ${spec.px}px Inter, sans-serif`;
+        strokeFill(ctx, spec.text, W / 2, y, spec.color, 0.16);
+        y += spec.lh;
     }
-
 
     return canvas.toBuffer('image/png');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Template 2 — Title + CTA Button
-// Reference: "28+ HOLIDAY OUTFITS" at top + red "SEE MORE →" pill at bottom.
-// Title floats bare on the image (strong drop-shadow only, no backing).
-// Deep-red pill button anchored to the bottom.
+// Reference: "28+ HOLIDAY OUTFITS" — bold white title at the top with
+// drop-shadow (no backing), deep-red pill "SEE MORE →" button at the bottom.
 // ─────────────────────────────────────────────────────────────────────────────
 function buildCTA(title) {
     const W = 1000, H = 1500;
@@ -143,56 +152,51 @@ function buildCTA(title) {
     ctx.clearRect(0, 0, W, H);
 
     const { num, rest } = parseNum(title);
-    const PAD = 50;
+    const PAD_X = 60;
+    const MAX_W = W - PAD_X * 2;
+
     const setShadow = () => {
-        ctx.shadowColor = 'rgba(0,0,0,0.9)';
-        ctx.shadowBlur = 22;
-        ctx.shadowOffsetX = 4;
-        ctx.shadowOffsetY = 5;
+        ctx.shadowColor    = 'rgba(0,0,0,0.88)';
+        ctx.shadowBlur     = 22;
+        ctx.shadowOffsetX  = 4;
+        ctx.shadowOffsetY  = 5;
     };
     const clearShadow = () => {
-        ctx.shadowColor = 'transparent';
-        ctx.shadowBlur = 0;
+        ctx.shadowColor   = 'transparent';
+        ctx.shadowBlur    = 0;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
     };
 
-    ctx.textAlign = 'center';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'top';
     let y = 75;
 
     if (num) {
-        // ── Large number, own line ─────────────────────────────────────
-        const NS = 170;
+        // Large number on its own first line
+        const NS = 165;
         ctx.font = `900 ${NS}px Inter, sans-serif`;
-        ctx.textBaseline = 'top';
         setShadow();
         ctx.fillStyle = '#FFFFFF';
         ctx.fillText(num, W / 2, y);
-        y += NS * 1.08;
         clearShadow();
+        y += NS * 1.08;
 
-        // ── Remaining title text ───────────────────────────────────────
-        const TS = 115;
-        ctx.font = `900 ${TS}px Inter, sans-serif`;
-        const lines = wrapByWidth(ctx, rest.toUpperCase(), W - PAD * 2).slice(0, 2);
-        const LH = TS * 1.1;
+        // Remaining title
+        const { size: ts, lines } = autoScale(ctx, rest.toUpperCase(), MAX_W, 3, 118);
+        const LH = ts * 1.12;
         setShadow();
         ctx.fillStyle = '#FFFFFF';
-        ctx.textBaseline = 'top';
         for (const line of lines) {
             ctx.fillText(line, W / 2, y);
             y += LH;
         }
         clearShadow();
     } else {
-        // ── Full title, no number ──────────────────────────────────────
-        const TS = 122;
-        ctx.font = `900 ${TS}px Inter, sans-serif`;
-        const lines = wrapByWidth(ctx, title.toUpperCase(), W - PAD * 2).slice(0, 3);
-        const LH = TS * 1.1;
+        const { size: ts, lines } = autoScale(ctx, title.toUpperCase(), MAX_W, 3, 125);
+        const LH = ts * 1.12;
         setShadow();
         ctx.fillStyle = '#FFFFFF';
-        ctx.textBaseline = 'top';
         for (const line of lines) {
             ctx.fillText(line, W / 2, y);
             y += LH;
@@ -200,28 +204,26 @@ function buildCTA(title) {
         clearShadow();
     }
 
-    // ── Deep-red pill CTA button ───────────────────────────────────────
+    // ── Deep-red pill CTA button anchored to bottom ──────────────────────
     const BW = 840, BH = 120, BR = 60;
-    const BX = (W - BW) / 2, BY = H - BH - 85;
+    const BX = (W - BW) / 2, BY = H - BH - 88;
 
     ctx.save();
-    // Button drop-shadow
-    ctx.shadowColor = 'rgba(0,0,0,0.35)';
-    ctx.shadowBlur = 24;
+    ctx.shadowColor   = 'rgba(0,0,0,0.35)';
+    ctx.shadowBlur    = 24;
     ctx.shadowOffsetY = 10;
     rrect(ctx, BX, BY, BW, BH, BR);
-    ctx.fillStyle = '#C91C1C'; // deep red matching reference
+    ctx.fillStyle = '#C91C1C';
     ctx.fill();
 
-    // Reset shadow before text
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
+    ctx.shadowColor   = 'transparent';
+    ctx.shadowBlur    = 0;
     ctx.shadowOffsetY = 0;
 
-    ctx.font = `800 64px Inter, sans-serif`;
-    ctx.textAlign = 'center';
+    ctx.font         = `800 64px Inter, sans-serif`;
+    ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#FFFFFF';
+    ctx.fillStyle    = '#FFFFFF';
     ctx.fillText('SEE MORE \u2192', W / 2, BY + BH / 2);
     ctx.restore();
 
@@ -230,8 +232,8 @@ function buildCTA(title) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Template 3 — Big Bold Center
-// Reference: "15 AIRPORT OUTFIT IDEAS" — each keyword on its own full-width line,
-// massive black-stroked white text, vertically centered, ✦ sparkle bottom-right.
+// Reference: "15 AIRPORT OUTFIT IDEAS" — massive white text with black stroke,
+// centered vertically. Auto-scaled with wrapByWidth so nothing ever overflows.
 // ─────────────────────────────────────────────────────────────────────────────
 function buildBigCenter(title) {
     const W = 1000, H = 1500;
@@ -240,62 +242,46 @@ function buildBigCenter(title) {
     ctx.clearRect(0, 0, W, H);
 
     const { num, rest } = parseNum(title);
-    const words = (rest || title).toUpperCase().split(' ');
+    const keyText = (rest || title).toUpperCase();
+    const PAD_X = 60;
+    const MAX_W = W - PAD_X * 2;
 
-    // Cap at 3 keyword lines (merge overflow into last slot)
-    const MAX_KW = 3;
-    const kw =
-        words.length <= MAX_KW
-            ? words
-            : [...words.slice(0, MAX_KW - 1), words.slice(MAX_KW - 1).join(' ')];
+    // Auto-scale keyword text
+    const { size: textSize, lines: keyLines } = autoScale(ctx, keyText, MAX_W, 4, 175);
 
-    // Line size specs: smaller number, larger keywords
-    const WORD_PX = 176;
-    const NUM_PX  = 112;
-    const WORD_LH = WORD_PX * 1.04;
-    const NUM_LH  = NUM_PX  * 1.1;
+    const numSize = num ? Math.round(textSize * 0.65) : 0;
+    const LH_TEXT = textSize * 1.1;
+    const LH_NUM  = numSize  * 1.15;
 
     const specs = [
-        ...(num ? [{ text: num,  px: NUM_PX,  lh: NUM_LH  }] : []),
-        ...kw.map(w => ({ text: w, px: WORD_PX, lh: WORD_LH })),
+        ...(num ? [{ text: num, px: numSize, lh: LH_NUM  }] : []),
+        ...keyLines.map(l => ({ text: l,     px: textSize, lh: LH_TEXT })),
     ];
 
     const totalH = specs.reduce((s, l) => s + l.lh, 0);
-    let y = (H - totalH) / 2; // perfectly vertically centered
+    let y = (H - totalH) / 2; // vertically centered
 
-    ctx.textAlign = 'center';
+    ctx.textAlign    = 'center';
     ctx.textBaseline = 'top';
 
     for (const spec of specs) {
         ctx.font = `900 ${spec.px}px Inter, sans-serif`;
-
-        // ── Black outline stroke ──────────────────────────────────────
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.92)';
-        ctx.lineWidth = 26;
-        ctx.lineJoin = 'round';
-        ctx.strokeText(spec.text, W / 2, y);
-
-        // ── White fill ────────────────────────────────────────────────
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillText(spec.text, W / 2, y);
-
+        strokeFill(ctx, spec.text, W / 2, y, '#FFFFFF', 0.15);
         y += spec.lh;
     }
-
 
     return canvas.toBuffer('image/png');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Template 4 — Minimal
-// No overlay composited — returns null so the caller keeps the original URL.
+// Returns null → caller uses original image URL unchanged.
 // ─────────────────────────────────────────────────────────────────────────────
 function buildMinimal() { return null; }
 
 // ── Public API ────────────────────────────────────────────────────────────────
 /**
- * Generate an overlay PNG Buffer for compositing, or null for 'minimal'.
- * @param {string} title    - Pin title (used as the overlay text)
+ * @param {string} title    - Pin title text composited onto the image
  * @param {string} template - 'top_bar' | 'cta_button' | 'big_center' | 'minimal'
  * @returns {Buffer | null}
  */

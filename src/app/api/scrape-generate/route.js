@@ -84,6 +84,24 @@ async function applyTemplate(imageUrl, title, template, imgbbKey) {
     }
 }
 
+// ── URL Slug → Keyword Phrase ─────────────────────────────────────────────────
+/**
+ * Extracts the human-readable keyword phrase from a URL slug.
+ * "https://site.com/what-to-wear-with-jeans-shorts/" → "What To Wear With Jeans Shorts"
+ */
+function extractSlugKeyword(url) {
+    if (!url) return null;
+    try {
+        const u = new URL(url.startsWith('http') ? url : `https://${url}`);
+        const segs = u.pathname.replace(/^\/|\/$/g, '').split('/').filter(Boolean);
+        // Try last segment; if it looks like an ID (all digits), use second-to-last
+        let slug = segs[segs.length - 1] || '';
+        if (/^\d+$/.test(slug) && segs.length > 1) slug = segs[segs.length - 2];
+        if (!slug) return null;
+        return slug.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    } catch { return null; }
+}
+
 // ── Route Handler ────────────────────────────────────────────────────────────
 export async function POST(req) {
     try {
@@ -109,6 +127,9 @@ export async function POST(req) {
         const templatePool = templates && templates.length > 0
             ? templates
             : ['top_bar', 'cta_button', 'big_center', 'minimal'];
+
+        // Extract the URL keyword once — used to anchor ALL titles to the page topic
+        const slugKeyword = extractSlugKeyword(sourceUrl);
 
         if (!images || images.length === 0) {
             return NextResponse.json({ error: 'No images provided' }, { status: 400 });
@@ -150,6 +171,7 @@ export async function POST(req) {
                                 ? `\nANTI-SPAM: Do NOT use similar phrasing as: [${historyTitles.slice(-5).join(' | ')}].`
                                 : '';
 
+
                             const angles = [
                                 'A deeply personal, first-person recommendation.',
                                 'A highly structured, listicle-style summary.',
@@ -159,32 +181,40 @@ export async function POST(req) {
                             ];
                             const randomAngle = angles[Math.floor(Math.random() * angles.length)];
 
-                            const textPrompt = `You are an expert Pinterest marketer. Write pin content for this image:
+                            const textPrompt = `You are an expert Pinterest content writer. Write pin metadata for this image:
 
 Source URL: ${sourceUrl || image.src}
-Image URL: ${image.src}
 Image alt: ${image.alt || 'N/A'}
-
 ${nicheInstruction}
-${variationPrompt}
 ${boardsInstruction}
 ${historyPrompt}
 
-TITLE RULES (read every rule before writing):
-1. Write a SHORT, PUNCHY title — ideally under 60 characters, HARD MAX of 80 characters. Count carefully.
-2. Every title must be a fully formed, grammatically complete phrase. No incomplete sentences, no trailing ellipses, no cut-off words.
-3. Zero repetitive phrasing or similar sentence structures across variations. Each must feel like a different writer wrote it.
-4. Use intelligent angle shifts per variation — change the benefit highlighted, the audience addressed, the tone (aspirational vs. practical vs. witty), or the context (morning, travel, date night, etc.).
-5. BANNED words: "Chic", "Elevated", "Stunning", "Captivating", "Trendy", "Aesthetic". Use specific, vivid language instead.
-6. The title will be composited as large text directly onto the image — brevity is critical.
+${slugKeyword ? `TOPIC LOCK — MOST IMPORTANT RULE:
+The title MUST be a SHORT, punchy variation or angle of this URL topic: "${slugKeyword}"
+Every title variation must stay on this topic. Do NOT write about unrelated subjects.
+Think of how a human would phrase a Pinterest search for "${slugKeyword}":
+  e.g. "${slugKeyword}", "Best Styles for ${slugKeyword.split(' ').pop()}",
+       "How to Wear ${slugKeyword.split(' ').slice(-2).join(' ')}",
+       "${slugKeyword.split(' ').slice(-2).join(' ')} Outfit Ideas", etc.
+Variation #${v + 1} angle: "${randomAngle}"
+` : `Variation #${v + 1} angle: "${randomAngle}"`}
+
+TITLE RULES:
+1. Fully formed, complete phrase — no ellipses, no trailing words, no cut-off text.
+2. Ideally under 60 characters, HARD MAX 80 characters. Count characters before writing.
+3. Each variation must feel like a different writer — no repeated sentence structure.
+4. Subject is female unless the URL explicitly states otherwise.
+5. BANNED words: "Chic", "Elevated", "Stunning", "Captivating", "Trendy", "Aesthetic".
+6. Title rendered as large overlay text on the image — brevity and punch are critical.
 
 Return ONLY valid raw JSON. NO markdown, NO backticks.
 {
-  "title": "Punchy, fully formed title. Ideally under 60 chars, never over 80.",
-  "description": "Compelling keyword-rich description, 100-500 chars. No hashtags.",
+  "title": "Short punchy title anchored to URL topic. Max 80 chars.",
+  "description": "Keyword-rich description, 100-500 chars. No hashtags.",
   "keywords": "comma, separated, 5-8, seo keywords",
   "generatedBoardName": "Pinterest board name"
 }`;
+
 
                             const modelsToTry = [
                                 { v: 'v1beta', m: 'gemini-2.5-flash' },
