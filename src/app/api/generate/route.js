@@ -269,7 +269,8 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
                         const specificTips = Array.isArray(tipsPool) ? tipsPool[Math.floor(Math.random() * tipsPool.length)] : tipsPool;
                         
                         const baselinePrompt = "Hyper-realistic photograph, shot on iPhone 15 Pro, 48MP main sensor, natural ambient lighting, slight lens flare, authentic depth of field with soft bokeh background, true-to-life skin texture with natural pores, micro hair detail, realistic eye catchlights, candid unposed composition, slight motion in surroundings, natural color grading with muted warm tones, no AI smoothing, no plastic skin, genuine imperfections — slight asymmetry, natural shadow falloff, real-world environment with environmental storytelling, shot at eye-level, f/1.78 aperture equivalent, cinematic natural light, slight chromatic noise in shadows, photojournalism style, unretouched RAW feel. Subject is ALWAYS female unless explicitly specified otherwise in the prompt.";
-                        const negativeInstructions = "NEGATIVE PROMPT (DO NOT INCLUDE): (worst quality, low quality:1.4), (text, signature, watermark, logo, brand:1.3), (CGI, 3D render, Unreal Engine, Octane render, octane, 3D model, doll, plastic, waxy, silicone, mannequin, airbrushed, retouched, smoothed skin:1.3), (extra fingers, missing fingers, fused fingers, deformed hands, distorted palms, claw hands:1.4), (extra limbs, mutated limbs, missing limbs, disconnected limbs, floating limbs:1.3), (long neck, turtle neck, bad anatomy, gross proportions, malformed body:1.2), (cross-eyed, deformed iris, deformed pupils, dead eyes, glowing eyes:1.3), (bad teeth, warped teeth, missing teeth:1.2), (oversaturated, neon colors, cartoon, anime, illustration, painting, drawing:1.3), (harsh shadows, pitch black shadows, flat lighting:1.1), (grainy, low-res, blurry, compression artifacts:1.2), (cropped head, out of frame, cut off:1.2), (fused clothing, nonsensical jewelry, asymmetric ears:1.1)";
+                        // Plain-English exclusions — Imagen does NOT support Stable Diffusion weighted syntax like (text:1.3)
+                        const negativeInstructions = "Do not include any text, watermarks, logos, or signatures. Do not render CGI, 3D renders, cartoons, anime, illustrations, or paintings. Avoid extra fingers, deformed hands, extra limbs, or distorted anatomy. Avoid harsh unnatural lighting, oversaturated colors, or plastic-looking skin. Do not crop the head. No collages or split images.";
                         const finalImagePrompt = `${baselinePrompt} ${textData.imagePrompt} CRITICAL AESTHETIC RULES: ${specificAesthetic} ${specificTips} ${negativeInstructions}`;
 
                         // 2. Generate Image using Imagen 3
@@ -286,11 +287,11 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
                                     process.env.GEMINI_API_KEY.trim()
                                 ].filter((v, i, a) => a.indexOf(v) === i); // unique only
 
-                                // Models to try (Maximize 170-image quota: Standard, Fast, Ultra)
+                                // Models to try — ordered from most stable to least. imagen-3.0 is a reliable fallback.
                                 const imageModels = [
-                                    'imagen-4.0-generate-001', 
+                                    'imagen-4.0-generate-001',
                                     'imagen-4.0-fast-generate-001',
-                                    'imagen-4.0-ultra-generate-001'
+                                    'imagen-3.0-generate-001',
                                 ];
 
                                 keyLoop: for (const currentKey of keysToTry) {
@@ -322,9 +323,10 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
                                                 if (imageResponse.status === 429 || errorText.includes('RESOURCE_EXHAUSTED')) {
                                                     console.warn(`[QUOTA] Key ${currentKey.substring(0, 8)} exhausted for ${imgModel}.`);
                                                     quotaExhausted = true;
-                                                    continue; // try next model or key
+                                                    await new Promise(r => setTimeout(r, 800)); // back off before next attempt
+                                                    continue;
                                                 }
-                                                console.warn(`Imagen ${imgModel} failed (HTTP ${imageResponse.status}):`, errorText.substring(0, 100));
+                                                console.warn(`Imagen ${imgModel} failed (HTTP ${imageResponse.status}):`, errorText.substring(0, 200));
                                             }
                                         } catch (fetchErr) {
                                             console.error(`Imagen network error:`, fetchErr.message);

@@ -243,9 +243,8 @@ function buildBigCenter(title) {
 
     const totalH = specs.reduce((s, l) => s + l.lh, 0);
 
-    // Bottom-anchor: block ends at 88% of canvas height
-    // For a 4-line block this puts start at ~52–56% — lower-center like reference
-    let y = H * 0.88 - totalH;
+    // True vertical center: block is centered at 50% of canvas height
+    let y = H * 0.50 - totalH / 2;
     if (y < H * 0.10) y = H * 0.10; // never above top 10%
 
     ctx.textAlign    = 'center';
