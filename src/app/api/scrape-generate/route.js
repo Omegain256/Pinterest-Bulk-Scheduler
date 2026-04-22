@@ -161,12 +161,13 @@ export async function POST(req) {
 
         const {
             images,
+            totalScraped,    // total images in the article (for the number prefix)
             variationCount,
             niche,
             geminiKey,
             existingBoards,
             sourceUrl,
-            templates,  // array of selected template IDs
+            templates,
             imgbbKey: clientImgbbKey,
         } = await req.json();
 
@@ -311,10 +312,10 @@ Return ONLY valid raw JSON. NO markdown, NO backticks.
                             }
 
                             // Deterministic overlay title — rotate by pinIndex so each image gets a fresh angle.
-                             // Use images.length as the number prefix (e.g. 15 images → "15 Minimalist Airport Outfits Ideas")
+                             // Use totalScraped (article image count) as the number prefix, not images.length (selected only).
                              const slugBase = slugKeyword || (textData.title || 'Style Inspiration').trim();
                              const angleTitle = TITLE_ANGLES[pinIndex % TITLE_ANGLES.length](slugBase);
-                             const imageCount = images.length;
+                             const imageCount = totalScraped || images.length; // fallback to selected if not provided
                              const overlayTitle = imageCount > 1
                                  ? `${imageCount} ${angleTitle}`.trim()
                                  : angleTitle.trim();

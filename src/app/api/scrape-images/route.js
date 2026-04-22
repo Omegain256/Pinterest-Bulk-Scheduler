@@ -80,6 +80,16 @@ export async function POST(req) {
             if (/\/(pixel|tracker|beacon|analytics|ads?\/|advert|favicon|sprite|placeholder|lazy|blank|loading)\b/i.test(absoluteSrc)) return;
             if (/\.(svg|gif|ico)(\?|$)/i.test(absoluteSrc)) return;
 
+            // Skip images inside author bio / avatar / profile containers
+            const $el = $(el);
+            const isBioContext = $el.closest(
+                '[class*="author"], [class*="bio"], [class*="avatar"], [class*="gravatar"], [class*="profile"], [class*="headshot"], [class*="byline"], [id*="author"], [id*="bio"]'
+            ).length > 0;
+            if (isBioContext) return;
+
+            // Skip avatar/author images by URL pattern
+            if (/\/(author|avatar|gravatar|headshot|profile|bio|byline)\/|\/(wp-content\/uploads\/avatars|wp-content\/uploads\/user)\//i.test(absoluteSrc)) return;
+
             if (seen.has(absoluteSrc)) return;
             seen.add(absoluteSrc);
 

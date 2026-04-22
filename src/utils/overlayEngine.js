@@ -38,7 +38,8 @@ const H = 1920;  // height  (9:16 ratio)
 
 // ── Fixed font size (140–160pt range, per user spec) ─────────────────────────
 const FONT_PX    = 150;           // main title font size in pixels
-const NUM_PX     = Math.round(FONT_PX * 0.68); // number is 68% of title size
+const NUM_PX     = Math.round(FONT_PX * 1.10); // Number is now 110% of title for impact
+const GOLD       = '#C8961C';     // Premium gold accent color
 const PAD_X      = 80;            // horizontal padding (80px each side)
 const MAX_W      = W - PAD_X * 2; // max line width = 920px
 const LH         = FONT_PX * 1.06; // tight line height matching reference
@@ -134,7 +135,7 @@ function buildTopBar(title) {
     ctx.textBaseline = 'top';
 
     const specs = [
-        ...(num ? [{ text: num, px: NUM_PX, lh: NUM_LH, color: '#C8961C' }] : []),
+        ...(num ? [{ text: num, px: NUM_PX, lh: NUM_LH, color: GOLD }] : []),
         ...keyLines.map(l => ({ text: l, px: FONT_PX, lh: LH, color: '#FFFFFF' })),
     ];
 
@@ -167,11 +168,10 @@ function buildCTA(title) {
     let y = 90;
 
     if (num) {
-        // Large number first
-        const NS = Math.round(FONT_PX * 1.15); // number slightly bigger for CTA
-        ctx.font = `900 ${NS}px Montserrat, sans-serif`;
-        shadowFill(ctx, num, W / 2, y);
-        y += NS * 1.1;
+        // Large number first in Gold
+        ctx.font = `900 ${NUM_PX}px Montserrat, sans-serif`;
+        shadowFill(ctx, num, W / 2, y, GOLD);
+        y += NUM_PX * 1.1;
 
         ctx.font = `900 ${FONT_PX}px Montserrat, sans-serif`;
         const lines = wrapByWidth(ctx, (rest || '').toUpperCase(), MAX_W).slice(0, 3);
@@ -237,7 +237,7 @@ function buildBigCenter(title) {
     const keyLines = wrapByWidth(ctx, keyText, MAX_W).slice(0, 4);
 
     const specs = [
-        ...(num ? [{ text: num, px: NUM_PX, lh: NUM_LH }] : []),
+        ...(num ? [{ text: num, px: NUM_PX, lh: NUM_LH, color: GOLD }] : []),
         ...keyLines.map(l => ({ text: l, px: FONT_PX, lh: LH })),
     ];
 
@@ -252,8 +252,21 @@ function buildBigCenter(title) {
 
     for (const spec of specs) {
         ctx.font = `900 ${spec.px}px Montserrat, sans-serif`;
-        shadowFill(ctx, spec.text, W / 2, y);
-        y += spec.lh;
+        shadowFill(ctx, spec.text, W / 2, y, spec.color || '#FFFFFF');
+        
+        // Add a small gold separator line after the number
+        if (spec.text === num && num) {
+            y += spec.lh * 0.8;
+            ctx.fillStyle = GOLD;
+            ctx.globalAlpha = 0.8;
+            const sw = 160, sh = 8;
+            rrect(ctx, (W - sw) / 2, y, sw, sh, 4);
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+            y += sh + 30; // Spacing after separator
+        } else {
+            y += spec.lh;
+        }
     }
 
     return canvas.toBuffer('image/png');

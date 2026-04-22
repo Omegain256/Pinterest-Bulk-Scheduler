@@ -133,6 +133,7 @@ export default function UrlScraper({
     const [scrapeUrl, setScrapeUrl] = useState('');
     const [isScraping, setIsScraping] = useState(false);
     const [scrapedImages, setScrapedImages] = useState([]);
+    const [totalScraped, setTotalScraped] = useState(0); // total from the article, not just selected
     const [selectedImages, setSelectedImages] = useState(new Set());
     const [variationCount, setVariationCount] = useState(1);
     const [scrapeError, setScrapeError] = useState('');
@@ -158,6 +159,7 @@ export default function UrlScraper({
             const data = await res.json();
             const imgs = data.images || [];
             setScrapedImages(imgs);
+            setTotalScraped(data.total || imgs.length); // store the TOTAL count from the article
             setSelectedImages(new Set(imgs.map((_, i) => i)));
         } catch (err) {
             setScrapeError(err.message);
@@ -205,6 +207,7 @@ export default function UrlScraper({
                 headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey.trim() },
                 body: JSON.stringify({
                     images: selected,
+                    totalScraped,  // total images found in the article (for the number prefix)
                     variationCount,
                     niche,
                     geminiKey: geminiKey.trim(),
