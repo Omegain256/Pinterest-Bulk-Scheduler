@@ -311,11 +311,14 @@ Return ONLY valid raw JSON. NO markdown, NO backticks.
                                 };
                             }
 
-                            // Deterministic overlay title — rotate by pinIndex so each image gets a fresh angle.
+                             // Deterministic overlay title — rotate by pinIndex so each image gets a fresh angle.
                              // Use totalScraped (article image count) as the number prefix, not images.length (selected only).
-                             const slugBase = slugKeyword || (textData.title || 'Style Inspiration').trim();
+                             const slugBase = slugKeyword || (textData.shortOverlayTitle || textData.title || 'Style Inspiration').trim();
                              const angleTitle = TITLE_ANGLES[pinIndex % TITLE_ANGLES.length](slugBase);
-                             const imageCount = totalScraped || images.length; // fallback to selected if not provided
+                             
+                             // imageCount is the listicle total (e.g. 15), not just selected count (e.g. 2)
+                             const imageCount = Math.max(Number(totalScraped) || 0, images.length);
+                             
                              const overlayTitle = imageCount > 1
                                  ? `${imageCount} ${angleTitle}`.trim()
                                  : angleTitle.trim();
