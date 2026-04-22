@@ -125,24 +125,10 @@ export async function POST(req) {
         const urlOccurrences = {};
         const historyTitles = [];
 
-        // ── Auto-Detect Listicle Count for single URLs ──
-        let detectedTotal = Number(totalScraped) || 0;
-        if (urls.length === 1 && !detectedTotal) {
-            try {
-                const scrapeRes = await fetch(`${req.nextUrl.origin}/api/scrape-images`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-                    body: JSON.stringify({ url: urls[0] })
-                });
-                if (scrapeRes.ok) {
-                    const scrapeData = await scrapeRes.json();
-                    detectedTotal = scrapeData.total || 0;
-                }
-            } catch (e) {
-                console.warn("[Auto-Scrape] Failed to detect total count:", e.message);
-            }
-        }
-
+        // ── Main AI Generator ──────────────────────────────────────────────────
+        // Note: Number prefixing is DISABLED for this tool as it caused "random" numbers.
+        // It is only used in the Scraper tool (/api/scrape-generate).
+        
         const stream = new ReadableStream({
             async start(controller) {
                 // Process sequentially to respect rate limits
@@ -300,14 +286,7 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
 
                         // --- Overlay title is computed HERE (outer scope) so generatedPin can access it ---
                         const slugBase = slugKeyword || (textData.shortOverlayTitle || textData.title || 'Style Inspiration').trim();
-                        const angleTitle = TITLE_ANGLES[i % TITLE_ANGLES.length](slugBase);
-                        
-                        // Use detected total (e.g. from article scrape) or fall back to provided URLs count
-                        const imageCount = Math.max(detectedTotal, urls.length);
-                        
-                        const overlayTitle = imageCount > 1
-                            ? `${imageCount} ${angleTitle}`.trim()
-                            : angleTitle.trim();
+                        const overlayTitle = TITLE_ANGLES[i % TITLE_ANGLES.length](slugBase).trim();
                         const templatesList = ['top_bar', 'cta_button', 'big_center'];
                         const template = templatesList[Math.floor(Math.random() * templatesList.length)];
 
