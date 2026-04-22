@@ -273,6 +273,16 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
                         const negativeInstructions = "Do not include any text, watermarks, logos, or signatures. Do not render CGI, 3D renders, cartoons, anime, illustrations, or paintings. Avoid extra fingers, deformed hands, extra limbs, or distorted anatomy. Avoid harsh unnatural lighting, oversaturated colors, or plastic-looking skin. Do not crop the head. No collages or split images.";
                         const finalImagePrompt = `${baselinePrompt} ${textData.imagePrompt} CRITICAL AESTHETIC RULES: ${specificAesthetic} ${specificTips} ${negativeInstructions}`;
 
+                        // --- Overlay title is computed HERE (outer scope) so generatedPin can access it ---
+                        const slugBase = slugKeyword || (textData.shortOverlayTitle || textData.title || 'Style Inspiration').trim();
+                        const angleTitle = TITLE_ANGLES[i % TITLE_ANGLES.length](slugBase);
+                        const urlCount = urls.length;
+                        const overlayTitle = urlCount > 1
+                            ? `${urlCount} ${angleTitle}`.trim()
+                            : angleTitle.trim();
+                        const templatesList = ['top_bar', 'cta_button', 'big_center'];
+                        const template = templatesList[Math.floor(Math.random() * templatesList.length)];
+
                         // 2. Generate Image using Imagen 3
                         let finalImageUrl = ''; // fallback to empty string
 
@@ -356,25 +366,10 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
                                      }).png().toBuffer();
                                 }
 
-                            // --- PHASE 3: NICHE-AWARE AESTHETICS COMPOSITING ---
-                             // We do this REGARDLESS of whether the AI generated the image or we fell back.
-                             // Deterministic overlay title: rotate by batch position i, use urls.length as number prefix.
-                             const slugBase = slugKeyword || (textData.shortOverlayTitle || textData.title || 'Style Inspiration').trim();
-                             const angleTitle = TITLE_ANGLES[i % TITLE_ANGLES.length](slugBase);
-                             const urlCount = urls.length;
-                             const overlayTitle = urlCount > 1
-                                 ? `${urlCount} ${angleTitle}`.trim()
-                                 : angleTitle.trim();
-                             
-                             // Select a random template instead of always using big_center (consistent with scraper)
-                             const templatesList = ['top_bar', 'cta_button', 'big_center'];
-                             const template = templatesList[Math.floor(Math.random() * templatesList.length)];
-                             
+                             // Composite Image + Canvas PNG overlay using sharp (PNG compositing works everywhere)
                              const overlayPngBuffer = generateOverlayBuffer(overlayTitle, template);
-
-                            // Composite Image + Canvas PNG overlay using sharp (PNG compositing works everywhere)
-                            const overlayPngReady = await sharp(overlayPngBuffer).png().toBuffer();
-                            const compositedBuffer = await sharp(rawBuffer)
+                             const overlayPngReady = await sharp(overlayPngBuffer).png().toBuffer();
+                             const compositedBuffer = await sharp(rawBuffer)
                                 .resize(1080, 1920, { fit: 'cover' })
                                 .composite([{ input: overlayPngReady, top: 0, left: 0, blend: 'over' }])
                                 .jpeg({ quality: 90 })
