@@ -3,6 +3,26 @@ import axios from 'axios';
 import sharp from 'sharp';
 import { generateOverlayBuffer } from '@/utils/overlayEngine.js';
 
+// --- CACHE BUST RE-EVALUATION LOGIC ---
+// Force Next.js HMR to pick up the very latest overlayEngine.js modifications!
+console.log("[INIT] Reloaded /api/generate Route Handler");
+
+/**
+ * Extracts the human-readable keyword phrase from a URL slug.
+ * "https://site.com/what-to-wear-with-jeans-shorts/" -> "What To Wear With Jeans Shorts"
+ */
+function extractSlugKeyword(url) {
+    if (!url) return null;
+    try {
+        const u = new URL(url.startsWith('http') ? url : `https://${url}`);
+        const segs = u.pathname.replace(/^\/|\/$/g, '').split('/').filter(Boolean);
+        let slug = segs[segs.length - 1] || '';
+        if (/^\d+$/.test(slug) && segs.length > 1) slug = segs[segs.length - 2];
+        if (!slug) return null;
+        return slug.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    } catch { return null; }
+}
+
 
 // genAI will be initialized dynamically per-request to support user-provided keys
 
@@ -109,6 +129,8 @@ export async function POST(req) {
                                 ? `\nCRITICAL ANTI-SPAM RULE: Do NOT use the exact same sentence structure, phrasing, or overlapping vocabulary as these recently generated titles in this batch: [${historyTitles.slice(-5).join(" | ")}]. Make this pin feel creatively distinct.` 
                                 : "";
 
+                            const slugKeyword = extractSlugKeyword(url);
+                            
                             const textPrompt = `
 You are an expert Pinterest marketer. Analyze this destination URL conceptually: ${url}
 (You don't need to visit it, just infer from the URL slug/name if needed).
@@ -116,6 +138,10 @@ ${nicheInstruction}
 ${variationPrompt}
 ${boardsInstruction}
 ${historyPrompt}
+
+${slugKeyword ? `TOPIC LOCK — MOST IMPORTANT RULE:
+The title MUST be a SHORT, punchy variation or angle of this URL topic: "${slugKeyword}"
+Every title/overlay variation must stay on this topic.` : ''}
 
 CRITICAL RULES:
 1. The subject for the pins and images MUST ALWAYS be female unless the URL/topic explicitly states otherwise (e.g. 'mens'). Use feminine pronouns (she/her) in descriptions.
@@ -299,12 +325,17 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
                              const extractedNum = urlMatch ? urlMatch[1] || urlMatch[0] : null;
                              
                              // Smart Deduplication: If the extracted number (e.g., 30) is already leading the title (e.g., 30th), skip prefix.
-                             const cleanShortTitle = textData.shortOverlayTitle || "";
+                             const cleanShortTitle = textData.shortOverlayTitle || textData.title || "Style Inspiration";
                              const alreadyHasNum = extractedNum && cleanShortTitle.toLowerCase().trim().startsWith(extractedNum.toLowerCase());
                              
                              const prefix = (extractedNum && !alreadyHasNum) ? `${extractedNum} ` : '';
                              const overlayTitle = `${prefix}${cleanShortTitle}`.trim();
-                            const overlayPngBuffer = generateOverlayBuffer(overlayTitle, 'big_center');
+                             
+                             // Select a random template instead of always using big_center (consistent with scraper)
+                             const templatesList = ['top_bar', 'cta_button', 'big_center'];
+                             const template = templatesList[Math.floor(Math.random() * templatesList.length)];
+                             
+                             const overlayPngBuffer = generateOverlayBuffer(overlayTitle, template);
 
                             // Composite Image + Canvas PNG overlay using sharp (PNG compositing works everywhere)
                             const overlayPngReady = await sharp(overlayPngBuffer).png().toBuffer();

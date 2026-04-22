@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
+import * as cheerio from 'cheerio';
 import sharp from 'sharp';
 import { generateOverlayBuffer } from '@/utils/overlayEngine.js';
+
+// --- CACHE BUST RE-EVALUATION LOGIC ---
+console.log("[INIT] Reloaded /api/scrape-generate Route Handler");
 
 // ── ImgBB Upload Helper ──────────────────────────────────────────────────────
 async function uploadToImgBB(imageBuffer, imgbbKey) {

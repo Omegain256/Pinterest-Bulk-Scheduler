@@ -10,18 +10,27 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 // ── Font Bootstrap ────────────────────────────────────────────────────────────
-let _fontReady = false;
+let fontLoaded = false;
 function ensureFont() {
-    if (_fontReady) return;
+    if (fontLoaded) return;
     try {
         const fontPath = join(process.cwd(), 'src/utils/fonts/Montserrat-Bold.ttf');
         const buf = readFileSync(fontPath);
-        GlobalFonts.register(buf, 'Montserrat');
-        console.log(`[overlayEngine] Montserrat Bold registered (${buf.length} bytes) from ${fontPath}`);
-    } catch (e) {
-        console.error('[overlayEngine] FONT LOAD FAILED — text will use system fallback:', e.message);
+        
+        try {
+            GlobalFonts.register(buf, 'Montserrat');
+            console.log(`[overlayEngine] Montserrat Bold registered (${buf.length} bytes) from ${fontPath}`);
+        } catch (regErr) {
+            // Ignore native C++ errors from @napi-rs/canvas during Next.js Hot Reloads
+            if (!regErr.message.includes('already')) {
+                console.warn('[overlayEngine] Font registration warning:', regErr.message);
+            }
+        }
+        
+        fontLoaded = true;
+    } catch (err) {
+        console.error(`[overlayEngine] Critical font load error:`, err);
     }
-    _fontReady = true;
 }
 
 // ── Canvas constants — 9:16 ───────────────────────────────────────────────────
@@ -266,8 +275,8 @@ function buildMinimal() { return null; }
 export function generateOverlayBuffer(title, template) {
     ensureFont();
     switch (template) {
-        case 'top_bar':    return buildTopBar(title);
-        case 'cta_button': return buildCTA(title);
+        case 'top_bar':    return buildBigCenter(title); // Enforce big_center style
+        case 'cta_button': return buildBigCenter(title); // Enforce big_center style
         case 'big_center': return buildBigCenter(title);
         case 'minimal':    return buildMinimal();
         default:           return buildBigCenter(title);
