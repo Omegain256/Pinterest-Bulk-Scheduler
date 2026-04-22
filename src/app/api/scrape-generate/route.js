@@ -7,7 +7,7 @@ import { generateOverlayBuffer } from '@/utils/overlayEngine.js';
 // --- CACHE BUST RE-EVALUATION LOGIC ---
 console.log("[INIT] Reloaded /api/scrape-generate Route Handler");
 
-// Deterministic overlay title rotation — no AI, always correct
+// Deterministic overlay title rotation — 30 unique angles, no AI needed
 const TITLE_ANGLES = [
     s => s,
     s => `${s} Ideas`,
@@ -19,6 +19,26 @@ const TITLE_ANGLES = [
     s => `${s} Looks`,
     s => `${s} Guide`,
     s => `${s} Tips`,
+    s => `${s} Outfit Ideas`,
+    s => `${s} Style Guide`,
+    s => `${s} Inspiration`,
+    s => `${s} Fashion Tips`,
+    s => `${s} Style Inspo`,
+    s => `${s} Outfit Inspo`,
+    s => `${s} Style Ideas`,
+    s => `${s} Look Ideas`,
+    s => `${s} Fashion Ideas`,
+    s => `${s} Style Tips`,
+    s => `${s} Outfit Inspiration`,
+    s => `${s} Fashion Guide`,
+    s => `${s} Trend Ideas`,
+    s => `${s} Style Trends`,
+    s => `${s} Outfit Goals`,
+    s => `${s} Fashion Looks`,
+    s => `${s} Style Goals`,
+    s => `${s} Look Inspo`,
+    s => `${s} Outfit Styles`,
+    s => `${s} Fashion Styles`,
 ];
 
 // ── ImgBB Upload Helper ──────────────────────────────────────────────────────
@@ -290,14 +310,14 @@ Return ONLY valid raw JSON. NO markdown, NO backticks.
                                 };
                             }
 
-                            // Deterministic overlay title — rotate by pinIndex so each image gets a fresh angle
-                             const slugNumMatch = slugKeyword ? slugKeyword.match(/^(\d+)\s+(.+)/) : null;
-                             const extractedNum = slugNumMatch ? slugNumMatch[1] : null;
-                             const slugBase = slugNumMatch ? slugNumMatch[2] : slugKeyword;
-                             const angleTitle = slugBase
-                                 ? TITLE_ANGLES[pinIndex % TITLE_ANGLES.length](slugBase)
-                                 : (textData.title || 'Style Inspiration').trim();
-                             const overlayTitle = extractedNum ? `${extractedNum} ${angleTitle}`.trim() : angleTitle.trim();
+                            // Deterministic overlay title — rotate by pinIndex so each image gets a fresh angle.
+                             // Use images.length as the number prefix (e.g. 15 images → "15 Minimalist Airport Outfits Ideas")
+                             const slugBase = slugKeyword || (textData.title || 'Style Inspiration').trim();
+                             const angleTitle = TITLE_ANGLES[pinIndex % TITLE_ANGLES.length](slugBase);
+                             const imageCount = images.length;
+                             const overlayTitle = imageCount > 1
+                                 ? `${imageCount} ${angleTitle}`.trim()
+                                 : angleTitle.trim();
 
                             // ── Apply template overlay (always, regardless of ImgBB) ──
                             // Step 1: Always apply the overlay and get the composited buffer

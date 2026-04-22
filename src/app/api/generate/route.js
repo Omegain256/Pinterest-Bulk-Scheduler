@@ -7,7 +7,7 @@ import { generateOverlayBuffer } from '@/utils/overlayEngine.js';
 // Force Next.js HMR to pick up the very latest overlayEngine.js modifications!
 console.log("[INIT] Reloaded /api/generate Route Handler");
 
-// Deterministic overlay title rotation — no AI, always correct
+// Deterministic overlay title rotation — 30 unique angles, no AI needed
 const TITLE_ANGLES = [
     s => s,
     s => `${s} Ideas`,
@@ -19,6 +19,26 @@ const TITLE_ANGLES = [
     s => `${s} Looks`,
     s => `${s} Guide`,
     s => `${s} Tips`,
+    s => `${s} Outfit Ideas`,
+    s => `${s} Style Guide`,
+    s => `${s} Inspiration`,
+    s => `${s} Fashion Tips`,
+    s => `${s} Style Inspo`,
+    s => `${s} Outfit Inspo`,
+    s => `${s} Style Ideas`,
+    s => `${s} Look Ideas`,
+    s => `${s} Fashion Ideas`,
+    s => `${s} Style Tips`,
+    s => `${s} Outfit Inspiration`,
+    s => `${s} Fashion Guide`,
+    s => `${s} Trend Ideas`,
+    s => `${s} Style Trends`,
+    s => `${s} Outfit Goals`,
+    s => `${s} Fashion Looks`,
+    s => `${s} Style Goals`,
+    s => `${s} Look Inspo`,
+    s => `${s} Outfit Styles`,
+    s => `${s} Fashion Styles`,
 ];
 
 /**
@@ -336,15 +356,13 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
 
                             // --- PHASE 3: NICHE-AWARE AESTHETICS COMPOSITING ---
                              // We do this REGARDLESS of whether the AI generated the image or we fell back.
-                             // Deterministic overlay title: rotate through TITLE_ANGLES by batch position (i).
-                             // Only extract a leading number if the URL slug itself starts with one.
-                             const slugNumMatch = slugKeyword ? slugKeyword.match(/^(\d+)\s+(.+)/) : null;
-                             const extractedNum = slugNumMatch ? slugNumMatch[1] : null;
-                             const slugBase = slugNumMatch ? slugNumMatch[2] : slugKeyword;
-                             const angleTitle = slugBase
-                                 ? TITLE_ANGLES[i % TITLE_ANGLES.length](slugBase)
-                                 : (textData.shortOverlayTitle || textData.title || 'Style Inspiration').trim();
-                             const overlayTitle = extractedNum ? `${extractedNum} ${angleTitle}`.trim() : angleTitle.trim();
+                             // Deterministic overlay title: rotate by batch position i, use urls.length as number prefix.
+                             const slugBase = slugKeyword || (textData.shortOverlayTitle || textData.title || 'Style Inspiration').trim();
+                             const angleTitle = TITLE_ANGLES[i % TITLE_ANGLES.length](slugBase);
+                             const urlCount = urls.length;
+                             const overlayTitle = urlCount > 1
+                                 ? `${urlCount} ${angleTitle}`.trim()
+                                 : angleTitle.trim();
                              
                              // Select a random template instead of always using big_center (consistent with scraper)
                              const templatesList = ['top_bar', 'cta_button', 'big_center'];
