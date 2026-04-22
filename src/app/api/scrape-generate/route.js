@@ -204,14 +204,20 @@ ${boardsInstruction}
 ${historyPrompt}
 
 ${slugKeyword ? `TOPIC LOCK — MOST IMPORTANT RULE:
-The title MUST be a SHORT, punchy variation or angle of this URL topic: "${slugKeyword}"
-Every title variation must stay on this topic. Do NOT write about unrelated subjects.
-Think of how a human would phrase a Pinterest search for "${slugKeyword}":
-  e.g. "${slugKeyword}", "Best Styles for ${slugKeyword.split(' ').pop()}",
-       "How to Wear ${slugKeyword.split(' ').slice(-2).join(' ')}",
-       "${slugKeyword.split(' ').slice(-2).join(' ')} Outfit Ideas", etc.
-Variation #${v + 1} angle: "${randomAngle}"
-` : `Variation #${v + 1} angle: "${randomAngle}"`}
+The title MUST be a Pinterest list-style variation of this URL topic: "${slugKeyword}"
+Variation #${v + 1} — rotate through these angles (never repeat the same angle twice):
+  1. Exact phrase: "${slugKeyword}"
+  2. "${slugKeyword} Ideas"
+  3. "${slugKeyword} Inspo"
+  4. "${slugKeyword} Styling Ideas"
+  5. "${slugKeyword} Styles"
+  6. "${slugKeyword} Fits"
+  7. "${slugKeyword} Fits Inspo"
+  8. "${slugKeyword} Looks"
+  9. "${slugKeyword} Guide"
+  10. "${slugKeyword} Tips"
+This variation should pick angle #${v + 1} from the list above.
+CRITICAL: NEVER add a number prefix. NEVER invent numbers. ONLY include a number if the URL slug itself starts with one (e.g. '30-airport-outfits').` : `Variation #${v + 1} angle: "${randomAngle}"`}
 
 TITLE RULES:
 1. Fully formed, complete phrase — no ellipses, no trailing words, no cut-off text.
@@ -223,7 +229,7 @@ TITLE RULES:
 
 Return ONLY valid raw JSON. NO markdown, NO backticks.
 {
-  "title": "Short punchy title anchored to URL topic. Max 80 chars.",
+  "title": "${slugKeyword ? `Variation #${v + 1} of the URL topic '${slugKeyword}' — use angle #${v + 1} from the rotation list above. Exactly the phrase as shown, e.g. '${slugKeyword} Ideas'. NEVER add a number unless the slug starts with one. Max 6 words.` : 'Short Pinterest overlay title anchored to URL topic. No number prefix. Max 6 words.'}",
   "description": "Keyword-rich description, 100-500 chars. No hashtags.",
   "keywords": "comma, separated, 5-8, seo keywords",
   "generatedBoardName": "Pinterest board name"

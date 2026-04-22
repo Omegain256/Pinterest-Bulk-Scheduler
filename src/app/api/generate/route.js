@@ -152,7 +152,7 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
 // Return ONLY a valid raw JSON object. NO markdown code blocks. NO backticks.
 {${categorySchemaField}
   "title": "The full, original title. Ensure perfect grammar and NO numerical redundancy (e.g., use '30th' NOT '30 30th').",
-  "shortOverlayTitle": "Extract the core entity for the image text. Absolutely avoid redundancy. NEVER repeat the same word or year twice. Max 7 words. Strictly avoid buzzwords like 'Chic'. Diversify significantly for variations.",
+  "shortOverlayTitle": "${slugKeyword ? `A Pinterest-style overlay title that is a variation of the URL topic '${slugKeyword}'. Variation #${variationIndex} — choose a FRESH angle from this list (rotate, do not repeat): exact phrase, '${slugKeyword} Ideas', '${slugKeyword} Inspo', '${slugKeyword} Styling Ideas', '${slugKeyword} Styles', '${slugKeyword} Fits', '${slugKeyword} Fits Inspo', '${slugKeyword} Looks', '${slugKeyword} Guide', '${slugKeyword} Tips'. CRITICAL: NEVER invent a number prefix. NEVER add a number unless the URL slug itself starts with a number (e.g. '30-airport-outfits'). Max 6 words.` : 'Short overlay title. No number prefix. Max 6 words.'}",
   "description": "A compelling, keyword-rich description between 100 and 800 characters. The annotated keywords should blend naturally into the description text for SEO purposes. NO hashtags.",
   "keywords": "comma separated list of 5-8 SEO keywords",
   "generatedBoardName": "The Pinterest board name to use (either from the EXISTING BOARDS list or a new high-quality name)",
@@ -321,15 +321,17 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
 
                             // --- PHASE 3: NICHE-AWARE AESTHETICS COMPOSITING ---
                             // We do this REGARDLESS of whether the AI generated the image or we fell back.
-                             const urlMatch = url.match(/(?:\/|-)(\d+)(?:\/|-|$)/) || url.match(/\d+/);
-                             const extractedNum = urlMatch ? urlMatch[1] || urlMatch[0] : null;
-                             
-                             // Smart Deduplication: If the extracted number (e.g., 30) is already leading the title (e.g., 30th), skip prefix.
-                             const cleanShortTitle = textData.shortOverlayTitle || textData.title || "Style Inspiration";
-                             const alreadyHasNum = extractedNum && cleanShortTitle.toLowerCase().trim().startsWith(extractedNum.toLowerCase());
-                             
-                             const prefix = (extractedNum && !alreadyHasNum) ? `${extractedNum} ` : '';
-                             const overlayTitle = `${prefix}${cleanShortTitle}`.trim();
+                             // Only extract a number if the URL slug ITSELF starts with one (e.g. "30-airport-outfits" → "30").
+                             // Never pull digits from IDs, years, or random URL components.
+                             const slugNumMatch = slugKeyword ? slugKeyword.match(/^(\d+)\s+(.+)/) : null;
+                             const extractedNum = slugNumMatch ? slugNumMatch[1] : null;
+
+                             // Variation #1 → exact slug keyword. Subsequent variations → AI's shortOverlayTitle.
+                             const aiShortTitle = (textData.shortOverlayTitle || textData.title || slugKeyword || 'Style Inspiration').trim();
+                             const overlayBase = (variationIndex === 1 && slugKeyword) ? slugKeyword : aiShortTitle;
+                             // If slug has a leading number and the title doesn't already include it, prepend it.
+                             const alreadyHasNum = extractedNum && overlayBase.toLowerCase().startsWith(extractedNum);
+                             const overlayTitle = (extractedNum && !alreadyHasNum) ? `${extractedNum} ${overlayBase}`.trim() : overlayBase.trim();
                              
                              // Select a random template instead of always using big_center (consistent with scraper)
                              const templatesList = ['top_bar', 'cta_button', 'big_center'];
