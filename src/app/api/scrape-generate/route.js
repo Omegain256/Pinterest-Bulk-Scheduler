@@ -7,6 +7,20 @@ import { generateOverlayBuffer } from '@/utils/overlayEngine.js';
 // --- CACHE BUST RE-EVALUATION LOGIC ---
 console.log("[INIT] Reloaded /api/scrape-generate Route Handler");
 
+// Deterministic overlay title rotation — no AI, always correct
+const TITLE_ANGLES = [
+    s => s,
+    s => `${s} Ideas`,
+    s => `${s} Inspo`,
+    s => `${s} Styling Ideas`,
+    s => `${s} Styles`,
+    s => `${s} Fits`,
+    s => `${s} Fits Inspo`,
+    s => `${s} Looks`,
+    s => `${s} Guide`,
+    s => `${s} Tips`,
+];
+
 // ── ImgBB Upload Helper ──────────────────────────────────────────────────────
 async function uploadToImgBB(imageBuffer, imgbbKey) {
     const base64 = imageBuffer.toString('base64');
@@ -276,7 +290,14 @@ Return ONLY valid raw JSON. NO markdown, NO backticks.
                                 };
                             }
 
-                            const title = (textData.title || '').substring(0, 80);
+                            // Deterministic overlay title — rotate by pinIndex so each image gets a fresh angle
+                             const slugNumMatch = slugKeyword ? slugKeyword.match(/^(\d+)\s+(.+)/) : null;
+                             const extractedNum = slugNumMatch ? slugNumMatch[1] : null;
+                             const slugBase = slugNumMatch ? slugNumMatch[2] : slugKeyword;
+                             const angleTitle = slugBase
+                                 ? TITLE_ANGLES[pinIndex % TITLE_ANGLES.length](slugBase)
+                                 : (textData.title || 'Style Inspiration').trim();
+                             const overlayTitle = extractedNum ? `${extractedNum} ${angleTitle}`.trim() : angleTitle.trim();
 
                             // ── Apply template overlay (always, regardless of ImgBB) ──
                             // Step 1: Always apply the overlay and get the composited buffer
@@ -284,7 +305,7 @@ Return ONLY valid raw JSON. NO markdown, NO backticks.
                             if (template !== 'minimal') {
                                 try {
                                     const compositedBuffer = await applyTemplate(
-                                        image.src, title, template,
+                                        image.src, overlayTitle, template,
                                         effectiveImgbbKey  // passed to upload step inside
                                     );
                                     finalImageUrl = compositedBuffer;
@@ -298,7 +319,7 @@ Return ONLY valid raw JSON. NO markdown, NO backticks.
                                 id: Date.now() + pinIndex + Math.random(),
                                 sourceUrl: sourceUrl || image.src,
                                 imageUrl: finalImageUrl,
-                                title,
+                                title: overlayTitle,
                                 description: (textData.description || '').substring(0, 500),
                                 keywords: textData.keywords || '',
                                 boardName: textData.generatedBoardName || 'My Boards',

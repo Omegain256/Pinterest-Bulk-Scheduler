@@ -7,6 +7,20 @@ import { generateOverlayBuffer } from '@/utils/overlayEngine.js';
 // Force Next.js HMR to pick up the very latest overlayEngine.js modifications!
 console.log("[INIT] Reloaded /api/generate Route Handler");
 
+// Deterministic overlay title rotation — no AI, always correct
+const TITLE_ANGLES = [
+    s => s,
+    s => `${s} Ideas`,
+    s => `${s} Inspo`,
+    s => `${s} Styling Ideas`,
+    s => `${s} Styles`,
+    s => `${s} Fits`,
+    s => `${s} Fits Inspo`,
+    s => `${s} Looks`,
+    s => `${s} Guide`,
+    s => `${s} Tips`,
+];
+
 /**
  * Extracts the human-readable keyword phrase from a URL slug.
  * "https://site.com/what-to-wear-with-jeans-shorts/" -> "What To Wear With Jeans Shorts"
@@ -115,6 +129,7 @@ export async function POST(req) {
                             : "Generate an intelligent, keyword-rich, and broad descriptive board name (e.g., 'Rodeo Outfits'). It should be reusable.";
 
                         // 1. Generate Text (Title, Description, Keywords, Image Prompt)
+                        const slugKeyword = extractSlugKeyword(url); // declared here so overlay section can access it
                         let textData;
                         try {
                             const angles = [
@@ -129,7 +144,7 @@ export async function POST(req) {
                                 ? `\nCRITICAL ANTI-SPAM RULE: Do NOT use the exact same sentence structure, phrasing, or overlapping vocabulary as these recently generated titles in this batch: [${historyTitles.slice(-5).join(" | ")}]. Make this pin feel creatively distinct.` 
                                 : "";
 
-                            const slugKeyword = extractSlugKeyword(url);
+                            // slugKeyword already declared in outer scope above
                             
                             const textPrompt = `
 You are an expert Pinterest marketer. Analyze this destination URL conceptually: ${url}
@@ -316,22 +331,20 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
                                             channels: 4,
                                             background: { r: 235, g: 235, b: 240, alpha: 1 }
                                         }
-                                    }).png().toBuffer();
+                                     }).png().toBuffer();
                                 }
 
                             // --- PHASE 3: NICHE-AWARE AESTHETICS COMPOSITING ---
-                            // We do this REGARDLESS of whether the AI generated the image or we fell back.
-                             // Only extract a number if the URL slug ITSELF starts with one (e.g. "30-airport-outfits" → "30").
-                             // Never pull digits from IDs, years, or random URL components.
+                             // We do this REGARDLESS of whether the AI generated the image or we fell back.
+                             // Deterministic overlay title: rotate through TITLE_ANGLES by batch position (i).
+                             // Only extract a leading number if the URL slug itself starts with one.
                              const slugNumMatch = slugKeyword ? slugKeyword.match(/^(\d+)\s+(.+)/) : null;
                              const extractedNum = slugNumMatch ? slugNumMatch[1] : null;
-
-                             // Variation #1 → exact slug keyword. Subsequent variations → AI's shortOverlayTitle.
-                             const aiShortTitle = (textData.shortOverlayTitle || textData.title || slugKeyword || 'Style Inspiration').trim();
-                             const overlayBase = (variationIndex === 1 && slugKeyword) ? slugKeyword : aiShortTitle;
-                             // If slug has a leading number and the title doesn't already include it, prepend it.
-                             const alreadyHasNum = extractedNum && overlayBase.toLowerCase().startsWith(extractedNum);
-                             const overlayTitle = (extractedNum && !alreadyHasNum) ? `${extractedNum} ${overlayBase}`.trim() : overlayBase.trim();
+                             const slugBase = slugNumMatch ? slugNumMatch[2] : slugKeyword;
+                             const angleTitle = slugBase
+                                 ? TITLE_ANGLES[i % TITLE_ANGLES.length](slugBase)
+                                 : (textData.shortOverlayTitle || textData.title || 'Style Inspiration').trim();
+                             const overlayTitle = extractedNum ? `${extractedNum} ${angleTitle}`.trim() : angleTitle.trim();
                              
                              // Select a random template instead of always using big_center (consistent with scraper)
                              const templatesList = ['top_bar', 'cta_button', 'big_center'];
@@ -378,7 +391,7 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
                         const generatedPin = {
                             id: Date.now() + i,
                             sourceUrl: url,
-                            title: textData.title.substring(0, 100),
+                            title: overlayTitle,  // Use the rotated variation title as the Pinterest card title
                             description: textData.description.substring(0, 500),
                             imageUrl: finalImageUrl,
                             boardName: textData.generatedBoardName || 'Automated Ideas',
