@@ -3,33 +3,32 @@
  * Canvas: 1080 × 1920 (9:16 — standard Pinterest/Instagram format).
  * Font:   Montserrat Bold (geometric sans-serif, Pinterest-standard).
  * Imported ONLY by API route handlers, never by client components.
+ *
+ * IMPORTANT: Font is loaded from an embedded base64 buffer (montserrat-font-data.js)
+ * NOT from the filesystem — this is required for Vercel serverless where
+ * process.cwd() does not point to the project source and readFileSync fails silently.
  */
 
 import { createCanvas, GlobalFonts } from '@napi-rs/canvas';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { montserratBoldBuffer } from './montserrat-font-data.js';
 
 // ── Font Bootstrap ────────────────────────────────────────────────────────────
+// Font is embedded as a base64 buffer at build time — no filesystem access.
+// This is the only approach that works reliably on Vercel serverless.
 let fontLoaded = false;
 function ensureFont() {
     if (fontLoaded) return;
     try {
-        const fontPath = join(process.cwd(), 'src/utils/fonts/Montserrat-Bold.ttf');
-        const buf = readFileSync(fontPath);
-        
-        try {
-            GlobalFonts.register(buf, 'Montserrat');
-            console.log(`[overlayEngine] Montserrat Bold registered (${buf.length} bytes) from ${fontPath}`);
-        } catch (regErr) {
-            // Ignore native C++ errors from @napi-rs/canvas during Next.js Hot Reloads
-            if (!regErr.message.includes('already')) {
-                console.warn('[overlayEngine] Font registration warning:', regErr.message);
-            }
-        }
-        
+        GlobalFonts.register(montserratBoldBuffer, 'Montserrat');
+        console.log(`[overlayEngine] Montserrat Bold registered from embedded buffer (${montserratBoldBuffer.length} bytes)`);
         fontLoaded = true;
-    } catch (err) {
-        console.error(`[overlayEngine] Critical font load error:`, err);
+    } catch (regErr) {
+        // Ignore duplicate registration errors during Next.js hot reloads
+        if (regErr.message && regErr.message.includes('already')) {
+            fontLoaded = true;
+        } else {
+            console.error('[overlayEngine] Font registration FAILED:', regErr.message);
+        }
     }
 }
 
