@@ -128,15 +128,24 @@ function buildTopBar(title) {
     const { num, rest } = parseNum(title);
     const keyText = (rest || title).toUpperCase();
 
-    ctx.font = `900 ${FONT_PX}px Montserrat, sans-serif`;
-    const keyLines = wrapByWidth(ctx, keyText, MAX_W).slice(0, 4);
+    let activeFontPx = FONT_PX;
+    ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
+    let keyLines = wrapByWidth(ctx, keyText, MAX_W);
+    
+    if (keyLines.length > 4) {
+        activeFontPx = 120;
+        ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
+        keyLines = wrapByWidth(ctx, keyText, MAX_W);
+    }
+    keyLines = keyLines.slice(0, 7);
+    const activeLH = activeFontPx * 1.06;
 
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'top';
 
     const specs = [
         ...(num ? [{ text: num, px: NUM_PX, lh: NUM_LH, color: GOLD }] : []),
-        ...keyLines.map(l => ({ text: l, px: FONT_PX, lh: LH, color: '#FFFFFF' })),
+        ...keyLines.map(l => ({ text: l, px: activeFontPx, lh: activeLH, color: '#FFFFFF' })),
     ];
 
     let y = 90; // top padding
@@ -167,24 +176,41 @@ function buildCTA(title) {
 
     let y = 90;
 
+    let activeFontPx = FONT_PX;
+    ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
+    
     if (num) {
         // Large number first in Gold
         ctx.font = `900 ${NUM_PX}px Montserrat, sans-serif`;
         shadowFill(ctx, num, W / 2, y, GOLD);
         y += NUM_PX * 1.1;
 
-        ctx.font = `900 ${FONT_PX}px Montserrat, sans-serif`;
-        const lines = wrapByWidth(ctx, (rest || '').toUpperCase(), MAX_W).slice(0, 3);
+        ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
+        let lines = wrapByWidth(ctx, (rest || '').toUpperCase(), MAX_W);
+        if (lines.length > 3) {
+            activeFontPx = 120;
+            ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
+            lines = wrapByWidth(ctx, (rest || '').toUpperCase(), MAX_W);
+        }
+        lines = lines.slice(0, 6);
+        const activeLH = activeFontPx * 1.06;
         for (const line of lines) {
             shadowFill(ctx, line, W / 2, y);
-            y += LH;
+            y += activeLH;
         }
     } else {
-        ctx.font = `900 ${FONT_PX}px Montserrat, sans-serif`;
-        const lines = wrapByWidth(ctx, title.toUpperCase(), MAX_W).slice(0, 4);
+        ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
+        let lines = wrapByWidth(ctx, title.toUpperCase(), MAX_W);
+        if (lines.length > 4) {
+            activeFontPx = 120;
+            ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
+            lines = wrapByWidth(ctx, title.toUpperCase(), MAX_W);
+        }
+        lines = lines.slice(0, 7);
+        const activeLH = activeFontPx * 1.06;
         for (const line of lines) {
             shadowFill(ctx, line, W / 2, y);
-            y += LH;
+            y += activeLH;
         }
     }
 
@@ -232,20 +258,33 @@ function buildBigCenter(title) {
     const { num, rest } = parseNum(title);
     const keyText = (rest || title).toUpperCase();
 
-    // Fixed 150px — matches the 140-160pt spec. NOT auto-scaled to fill width.
-    ctx.font = `900 ${FONT_PX}px Montserrat, sans-serif`;
-    const keyLines = wrapByWidth(ctx, keyText, MAX_W).slice(0, 4);
+    // ── Font Scaling ──
+    // If text is very long, shrink slightly to fit more lines on screen
+    let activeFontPx = FONT_PX;
+    ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
+    let keyLines = wrapByWidth(ctx, keyText, MAX_W);
+    
+    if (keyLines.length > 4) {
+        activeFontPx = 125; // shrink to 125px for long listicles
+        ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
+        keyLines = wrapByWidth(ctx, keyText, MAX_W);
+    }
+    
+    // Limit to 7 lines max to prevent going off-screen
+    keyLines = keyLines.slice(0, 7);
+    const activeLH = activeFontPx * 1.06;
 
+    const separatorHeight = num ? (8 + 30 + (NUM_LH * 0.8)) : 0;
     const specs = [
         ...(num ? [{ text: num, px: NUM_PX, lh: NUM_LH, color: GOLD }] : []),
-        ...keyLines.map(l => ({ text: l, px: FONT_PX, lh: LH })),
+        ...keyLines.map(l => ({ text: l, px: activeFontPx, lh: activeLH })),
     ];
 
-    const totalH = specs.reduce((s, l) => s + l.lh, 0);
+    const totalH = specs.reduce((s, l) => s + l.lh, 0) + separatorHeight;
 
     // True vertical center: block is centered at 50% of canvas height
     let y = H * 0.50 - totalH / 2;
-    if (y < H * 0.10) y = H * 0.10; // never above top 10%
+    if (y < H * 0.08) y = H * 0.08; // slightly more headroom
 
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'top';
