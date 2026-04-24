@@ -55,15 +55,30 @@ export async function POST(req) {
         }
 
         function isBadUrl(abs) {
+            // Tracking / utility
             if (/\/(pixel|tracker|beacon|analytics|ads?\/|advert|favicon|sprite|placeholder|lazy|blank|loading)\b/i.test(abs)) return true;
+            // Non-photo formats
             if (/\.(svg|gif|ico)(\?|$)/i.test(abs)) return true;
+            // Author / avatar / profile paths
             if (/\/(author|avatar|gravatar|headshot|profile|bio|byline)\/|\/(wp-content\/uploads\/avatars|wp-content\/uploads\/user)\//i.test(abs)) return true;
+            // Logo by URL path or filename
+            if (/\/(logo|logos|site-logo|brand|branding|header-logo|footer-logo)[\/\-_.]/i.test(abs)) return true;
+            if (/[\/\-_.]logo[\/\-_.\d]|[\/\-_.]logo$/i.test(abs)) return true;
             return false;
         }
 
         function inBioContext($el) {
             return $el.closest(
-                '[class*="author"],[class*="bio"],[class*="avatar"],[class*="gravatar"],[class*="profile"],[class*="headshot"],[class*="byline"],[id*="author"],[id*="bio"]'
+                // Author / bio / avatar
+                '[class*="author"],[class*="bio"],[class*="avatar"],[class*="gravatar"],' +
+                '[class*="profile"],[class*="headshot"],[class*="byline"],' +
+                '[id*="author"],[id*="bio"],' +
+                // Logo containers
+                '[class*="logo"],[class*="site-logo"],[class*="brand"],' +
+                '[id*="logo"],[id*="site-logo"],[id*="brand"],' +
+                // Header / footer (common logo locations)
+                'header,[class*="header"],[class*="navbar"],[class*="nav-bar"],' +
+                'footer,[class*="footer"]'
             ).length > 0;
         }
 
