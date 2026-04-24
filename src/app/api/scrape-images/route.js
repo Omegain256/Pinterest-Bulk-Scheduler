@@ -38,64 +38,95 @@ export async function POST(req) {
         let baseOrigin = '';
         try { baseOrigin = new URL(url).origin; } catch {}
 
+        // ── Helpers ──────────────────────────────────────────────────────────
+        function resolveUrl(src) {
+            if (!src || src.startsWith('data:')) return null;
+            try { return new URL(src, url).href; } catch { return null; }
+        }
+
+        /** Pick the highest-resolution URL from a srcset string */
+        function bestFromSrcset(srcset) {
+            if (!srcset) return null;
+            // srcset entries: "url 800w, url 1200w" or "url 1x, url 2x"
+            const entries = srcset.split(',').map(s => s.trim()).filter(Boolean);
+            // Take the last entry (typically largest)
+            const last = entries[entries.length - 1];
+            return last ? last.trim().split(/\s+/)[0] : null;
+        }
+
+        function isBadUrl(abs) {
+            if (/\/(pixel|tracker|beacon|analytics|ads?\/|advert|favicon|sprite|placeholder|lazy|blank|loading)\b/i.test(abs)) return true;
+            if (/\.(svg|gif|ico)(\?|$)/i.test(abs)) return true;
+            if (/\/(author|avatar|gravatar|headshot|profile|bio|byline)\/|\/(wp-content\/uploads\/avatars|wp-content\/uploads\/user)\//i.test(abs)) return true;
+            return false;
+        }
+
+        function inBioContext($el) {
+            return $el.closest(
+                '[class*="author"],[class*="bio"],[class*="avatar"],[class*="gravatar"],[class*="profile"],[class*="headshot"],[class*="byline"],[id*="author"],[id*="bio"]'
+            ).length > 0;
+        }
+
+        function addImage(src, alt, isFeatured = false) {
+            const abs = resolveUrl(src);
+            if (!abs || seen.has(abs) || isBadUrl(abs)) return;
+            seen.add(abs);
+            images.push({ src: abs, alt: (alt || '').trim(), isFeatured });
+        }
+
         const images = [];
         const seen = new Set();
 
-        function resolveUrl(src) {
-            if (!src || src.startsWith('data:')) return null;
-            try { return new URL(src, baseOrigin).href; } catch { return null; }
-        }
+        // Priority 1: Meta images (OG, Twitter, link rel)
+        ['meta[property="og:image"]', 'meta[property="og:image:url"]', 'meta[name="twitter:image"]', 'meta[name="twitter:image:src"]']
+            .forEach(sel => addImage($( sel).attr('content'), 'Featured Image', true));
+        addImage($('link[rel="image_src"]').attr('href'), 'Featured Image', true);
 
-        // Priority 1: Open Graph image (usually highest quality)
-        const ogImage = resolveUrl($('meta[property="og:image"]').attr('content'));
-        if (ogImage && !seen.has(ogImage)) {
-            seen.add(ogImage);
-            images.push({ src: ogImage, alt: 'Featured Image', isFeatured: true });
-        }
+        // Priority 2: <picture> / <source srcset> — often used for modern responsive images
+        $('picture source').each((_, el) => {
+            const srcset = $(el).attr('srcset') || $(el).attr('data-srcset');
+            const best = bestFromSrcset(srcset);
+            if (best) addImage(best, '');
+        });
 
-        // Priority 2: Twitter card image
-        const twitterImage = resolveUrl($('meta[name="twitter:image"]').attr('content'));
-        if (twitterImage && !seen.has(twitterImage)) {
-            seen.add(twitterImage);
-            images.push({ src: twitterImage, alt: 'Twitter Card Image', isFeatured: true });
-        }
-
-        // Priority 3: All <img> tags
+        // Priority 3: <img> tags — exhaustive lazy-load attribute search
         $('img').each((_, el) => {
-            const src = $(el).attr('src')
-                || $(el).attr('data-src')
-                || $(el).attr('data-lazy-src')
-                || $(el).attr('data-original')
-                || $(el).attr('data-srcset')?.split(',')[0]?.trim()?.split(' ')[0];
-
-            const alt = ($(el).attr('alt') || '').trim();
-            const widthAttr = parseInt($(el).attr('width') || '0');
-            const heightAttr = parseInt($(el).attr('height') || '0');
-
-            // Skip tiny images (tracking pixels / icons)
-            if ((widthAttr > 0 && widthAttr < 150) || (heightAttr > 0 && heightAttr < 150)) return;
-
-            const absoluteSrc = resolveUrl(src);
-            if (!absoluteSrc) return;
-
-            // Skip known non-content patterns
-            if (/\/(pixel|tracker|beacon|analytics|ads?\/|advert|favicon|sprite|placeholder|lazy|blank|loading)\b/i.test(absoluteSrc)) return;
-            if (/\.(svg|gif|ico)(\?|$)/i.test(absoluteSrc)) return;
-
-            // Skip images inside author bio / avatar / profile containers
             const $el = $(el);
-            const isBioContext = $el.closest(
-                '[class*="author"], [class*="bio"], [class*="avatar"], [class*="gravatar"], [class*="profile"], [class*="headshot"], [class*="byline"], [id*="author"], [id*="bio"]'
-            ).length > 0;
-            if (isBioContext) return;
+            if (inBioContext($el)) return;
 
-            // Skip avatar/author images by URL pattern
-            if (/\/(author|avatar|gravatar|headshot|profile|bio|byline)\/|\/(wp-content\/uploads\/avatars|wp-content\/uploads\/user)\//i.test(absoluteSrc)) return;
+            const widthAttr  = parseInt($el.attr('width')  || '0');
+            const heightAttr = parseInt($el.attr('height') || '0');
 
-            if (seen.has(absoluteSrc)) return;
-            seen.add(absoluteSrc);
+            // Only skip if BOTH dimensions are explicitly tiny (real tracking pixels)
+            if (widthAttr > 0 && widthAttr < 10 && heightAttr > 0 && heightAttr < 10) return;
 
-            images.push({ src: absoluteSrc, alt });
+            const alt = ($el.attr('alt') || '').trim();
+
+            // Try every known lazy-load attribute, preferring highest-res
+            const candidates = [
+                // Standard src first
+                $el.attr('src'),
+                // Lazy-load single-url attributes
+                $el.attr('data-src'),
+                $el.attr('data-lazy-src'),
+                $el.attr('data-original'),
+                $el.attr('data-image'),
+                $el.attr('data-full'),
+                $el.attr('data-large_image'),
+                $el.attr('data-zoom-image'),
+                $el.attr('data-hi-res-src'),
+                // Srcset attributes — pick best resolution
+                bestFromSrcset($el.attr('srcset')),
+                bestFromSrcset($el.attr('data-srcset')),
+                bestFromSrcset($el.attr('data-lazy-srcset')),
+            ].filter(Boolean);
+
+            for (const candidate of candidates) {
+                if (!candidate.startsWith('data:')) {
+                    addImage(candidate, alt);
+                    break; // Use the first valid (non-data-URI) candidate
+                }
+            }
         });
 
         const finalImages = imageLimit ? images.slice(0, imageLimit) : images.slice(0, 60);
