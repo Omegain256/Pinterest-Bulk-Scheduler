@@ -69,16 +69,9 @@ export async function POST(req) {
 
         function inBioContext($el) {
             return $el.closest(
-                // Author / bio / avatar
                 '[class*="author"],[class*="bio"],[class*="avatar"],[class*="gravatar"],' +
                 '[class*="profile"],[class*="headshot"],[class*="byline"],' +
-                '[id*="author"],[id*="bio"],' +
-                // Logo containers
-                '[class*="logo"],[class*="site-logo"],[class*="brand"],' +
-                '[id*="logo"],[id*="site-logo"],[id*="brand"],' +
-                // Header / footer (common logo locations)
-                'header,[class*="header"],[class*="navbar"],[class*="nav-bar"],' +
-                'footer,[class*="footer"]'
+                '[id*="author"],[id*="bio"]'
             ).length > 0;
         }
 
