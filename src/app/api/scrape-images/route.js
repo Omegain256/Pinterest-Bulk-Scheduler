@@ -11,11 +11,13 @@ export async function POST(req) {
             return NextResponse.json({ error: 'Unauthorized: Invalid API Key' }, { status: 401 });
         }
 
-        const { url } = await req.json();
+        const { url, limit } = await req.json();
 
         if (!url) {
             return NextResponse.json({ error: 'No URL provided' }, { status: 400 });
         }
+
+        const imageLimit = limit && Number.isInteger(limit) && limit > 0 ? limit : null;
 
         let pageHtml;
         try {
@@ -96,8 +98,9 @@ export async function POST(req) {
             images.push({ src: absoluteSrc, alt });
         });
 
+        const finalImages = imageLimit ? images.slice(0, imageLimit) : images.slice(0, 60);
         return NextResponse.json({
-            images: images.slice(0, 60),
+            images: finalImages,
             total: images.length,
             pageTitle: $('title').first().text().trim() || ''
         });
