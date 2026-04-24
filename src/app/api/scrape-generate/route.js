@@ -160,13 +160,11 @@ export async function POST(req) {
         }
 
         const {
-            images,
-            totalScraped,    // total images in the article (for the number prefix)
+            jobs,
             variationCount,
             niche,
             geminiKey,
             existingBoards,
-            sourceUrl,
             templates,
             imgbbKey: clientImgbbKey,
         } = await req.json();
@@ -177,11 +175,8 @@ export async function POST(req) {
             ? templates
             : ['top_bar', 'cta_button', 'big_center', 'minimal'];
 
-        // Extract the URL keyword once — used to anchor ALL titles to the page topic
-        const slugKeyword = extractSlugKeyword(sourceUrl);
-
-        if (!images || images.length === 0) {
-            return NextResponse.json({ error: 'No images provided' }, { status: 400 });
+        if (!jobs || jobs.length === 0) {
+            return NextResponse.json({ error: 'No jobs provided' }, { status: 400 });
         }
         if (!effectiveGeminiKey) {
             return NextResponse.json({ error: 'Gemini API Key is missing' }, { status: 400 });
@@ -194,7 +189,13 @@ export async function POST(req) {
             async start(controller) {
                 let pinIndex = 0;
 
-                for (const image of images) {
+                for (const job of jobs) {
+                    // Each job is an independent article source
+                    const { imageUrl, imageAlt, sourceUrl: jobSourceUrl, totalScraped: jobTotal } = job;
+                    const image = { src: imageUrl, alt: imageAlt };
+                    const slugKeyword = extractSlugKeyword(jobSourceUrl);
+                    const imageCount = Math.max(Number(jobTotal) || 0, 1);
+
                     const count = Math.max(1, Math.min(10, variationCount || 1));
 
                     for (let v = 0; v < count; v++) {
@@ -232,7 +233,7 @@ export async function POST(req) {
 
                             const textPrompt = `You are an expert Pinterest content writer. Write pin metadata for this image:
 
-Source URL: ${sourceUrl || image.src}
+Source URL: ${jobSourceUrl || image.src}
 Image alt: ${image.alt || 'N/A'}
 ${nicheInstruction}
 ${boardsInstruction}
@@ -311,14 +312,9 @@ Return ONLY valid raw JSON. NO markdown, NO backticks.
                                 };
                             }
 
-                             // Deterministic overlay title — rotate by pinIndex so each image gets a fresh angle.
-                             // Use totalScraped (article image count) as the number prefix, not images.length (selected only).
+                             // Overlay title: number prefix from this article's total, keyword from its URL
                              const slugBase = slugKeyword || (textData.shortOverlayTitle || textData.title || 'Style Inspiration').trim();
                              const angleTitle = TITLE_ANGLES[pinIndex % TITLE_ANGLES.length](slugBase);
-                             
-                             // imageCount is the listicle total (e.g. 15), not just selected count (e.g. 2)
-                             const imageCount = Math.max(Number(totalScraped) || 0, images.length);
-                             
                              const overlayTitle = imageCount > 1
                                  ? `${imageCount} ${angleTitle}`.trim()
                                  : angleTitle.trim();
@@ -341,7 +337,7 @@ Return ONLY valid raw JSON. NO markdown, NO backticks.
 
                             const generatedPin = {
                                 id: Date.now() + pinIndex + Math.random(),
-                                sourceUrl: sourceUrl || image.src,
+                                sourceUrl: jobSourceUrl || image.src,
                                 imageUrl: finalImageUrl,
                                 title: overlayTitle,
                                 description: (textData.description || '').substring(0, 500),
@@ -360,7 +356,7 @@ Return ONLY valid raw JSON. NO markdown, NO backticks.
                             console.error(`Error for image ${image.src}:`, err.message);
                             const errorPin = {
                                 id: Date.now() + pinIndex + Math.random(),
-                                sourceUrl: sourceUrl || image.src,
+                                sourceUrl: jobSourceUrl || image.src,
                                 imageUrl: image.src,
                                 title: 'Content generation failed',
                                 description: 'Please edit this pin manually.',
