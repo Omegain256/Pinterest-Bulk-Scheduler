@@ -203,12 +203,7 @@ REQUIRED JSON FORMAT (Return ONLY raw JSON):
                                     else finalOverlay = `${imageCount} ${finalOverlay}`; // Just number + keyword
                                 }
                                 
-                                // Safety truncate only at word boundaries and only if extreme
-                                if (finalOverlay.length > 42) {
-                                    const truncated = finalOverlay.substring(0, 40);
-                                    finalOverlay = truncated.substring(0, Math.min(truncated.length, truncated.lastIndexOf(' '))) + '...';
-                                }
-
+                                // Let overlayEngine handle scaling and wrapping without cutting
                                 const finalImageUrl = await applyTemplate(imageUrl, finalOverlay, template, effectiveImgbbKey);
 
                                 const pin = {

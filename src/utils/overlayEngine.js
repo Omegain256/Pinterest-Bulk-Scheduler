@@ -48,21 +48,39 @@ const NUM_LH     = NUM_PX * 1.12;
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
- * Pixel-accurate word wrapping. ctx.font MUST be set before calling.
- * Groups as many words as fit on each line — NOT one-word-per-line.
- * This keeps text at the fixed 150px size without taking over the whole image.
+ * Pixel-accurate word wrapping with dynamic font scaling.
+ * If the resulting lines would overflow the layout, it scales down the font and re-wraps.
  */
-function wrapByWidth(ctx, text, maxW) {
-    const words = text.split(' ');
-    const lines = [];
-    let cur = '';
-    for (const word of words) {
-        const test = cur ? `${cur} ${word}` : word;
-        if (ctx.measureText(test).width <= maxW) { cur = test; }
-        else { if (cur) lines.push(cur); cur = word; }
+function wrapAndScale(ctx, text, maxW, initialPx, maxLines = 3) {
+    let currentPx = initialPx;
+    let lines = [];
+    
+    // Scale down loop
+    while (currentPx > 80) { // Don't go smaller than 80px
+        ctx.font = `900 ${currentPx}px Montserrat`;
+        const words = text.split(' ');
+        lines = [];
+        let cur = '';
+        
+        for (const word of words) {
+            const test = cur ? `${cur} ${word}` : word;
+            if (ctx.measureText(test).width <= maxW) {
+                cur = test;
+            } else {
+                if (cur) lines.push(cur);
+                cur = word;
+            }
+        }
+        if (cur) lines.push(cur);
+        
+        // If it fits within maxLines, we're good
+        if (lines.length <= maxLines) break;
+        
+        // Otherwise, shrink and try again
+        currentPx -= 10;
     }
-    if (cur) lines.push(cur);
-    return lines;
+    
+    return { lines, px: currentPx, lh: currentPx * 1.08 };
 }
 
 /**
@@ -127,18 +145,7 @@ function buildTopBar(title) {
 
     const { num, rest } = parseNum(title);
     const keyText = (rest || title).toUpperCase();
-
-    let activeFontPx = FONT_PX;
-    ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
-    let keyLines = wrapByWidth(ctx, keyText, MAX_W);
-    
-    if (keyLines.length > 4) {
-        activeFontPx = 120;
-        ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
-        keyLines = wrapByWidth(ctx, keyText, MAX_W);
-    }
-    keyLines = keyLines.slice(0, 7);
-    const activeLH = activeFontPx * 1.06;
+    const { lines: keyLines, px: activeFontPx, lh: activeLH } = wrapAndScale(ctx, keyText, MAX_W, FONT_PX, 7);
 
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'top';
@@ -176,8 +183,7 @@ function buildCTA(title) {
 
     let y = 90;
 
-    let activeFontPx = FONT_PX;
-    ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
+    const { lines, px: activeFontPx, lh: activeLH } = wrapAndScale(ctx, (rest || title).toUpperCase(), MAX_W, FONT_PX, 6);
     
     if (num) {
         // Large number first in Gold
@@ -185,30 +191,14 @@ function buildCTA(title) {
         shadowFill(ctx, num, W / 2, y, GOLD);
         y += NUM_PX * 1.1;
 
-        ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
-        let lines = wrapByWidth(ctx, (rest || '').toUpperCase(), MAX_W);
-        if (lines.length > 3) {
-            activeFontPx = 120;
-            ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
-            lines = wrapByWidth(ctx, (rest || '').toUpperCase(), MAX_W);
-        }
-        lines = lines.slice(0, 6);
-        const activeLH = activeFontPx * 1.06;
         for (const line of lines) {
+            ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
             shadowFill(ctx, line, W / 2, y);
             y += activeLH;
         }
     } else {
-        ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
-        let lines = wrapByWidth(ctx, title.toUpperCase(), MAX_W);
-        if (lines.length > 4) {
-            activeFontPx = 120;
-            ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
-            lines = wrapByWidth(ctx, title.toUpperCase(), MAX_W);
-        }
-        lines = lines.slice(0, 7);
-        const activeLH = activeFontPx * 1.06;
         for (const line of lines) {
+            ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
             shadowFill(ctx, line, W / 2, y);
             y += activeLH;
         }
@@ -259,20 +249,7 @@ function buildBigCenter(title) {
     const keyText = (rest || title).toUpperCase();
 
     // ── Font Scaling ──
-    // If text is very long, shrink slightly to fit more lines on screen
-    let activeFontPx = FONT_PX;
-    ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
-    let keyLines = wrapByWidth(ctx, keyText, MAX_W);
-    
-    if (keyLines.length > 4) {
-        activeFontPx = 125; // shrink to 125px for long listicles
-        ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
-        keyLines = wrapByWidth(ctx, keyText, MAX_W);
-    }
-    
-    // Limit to 7 lines max to prevent going off-screen
-    keyLines = keyLines.slice(0, 7);
-    const activeLH = activeFontPx * 1.06;
+    const { lines: keyLines, px: activeFontPx, lh: activeLH } = wrapAndScale(ctx, keyText, MAX_W, FONT_PX, 7);
 
     const separatorHeight = num ? (8 + 30 + (NUM_LH * 0.8)) : 0;
     const specs = [

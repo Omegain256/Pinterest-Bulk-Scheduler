@@ -7,39 +7,7 @@ import { generateOverlayBuffer } from '@/utils/overlayEngine.js';
 // Force Next.js HMR to pick up the very latest overlayEngine.js modifications!
 console.log("[INIT] Reloaded /api/generate Route Handler");
 
-// Deterministic overlay title rotation — 30 unique angles, no AI needed
-const TITLE_ANGLES = [
-    s => s,
-    s => `${s} Ideas`,
-    s => `${s} Inspo`,
-    s => `${s} Styling Ideas`,
-    s => `${s} Styles`,
-    s => `${s} Fits`,
-    s => `${s} Fits Inspo`,
-    s => `${s} Looks`,
-    s => `${s} Guide`,
-    s => `${s} Tips`,
-    s => `${s} Outfit Ideas`,
-    s => `${s} Style Guide`,
-    s => `${s} Inspiration`,
-    s => `${s} Fashion Tips`,
-    s => `${s} Style Inspo`,
-    s => `${s} Outfit Inspo`,
-    s => `${s} Style Ideas`,
-    s => `${s} Look Ideas`,
-    s => `${s} Fashion Ideas`,
-    s => `${s} Style Tips`,
-    s => `${s} Outfit Inspiration`,
-    s => `${s} Fashion Guide`,
-    s => `${s} Trend Ideas`,
-    s => `${s} Style Trends`,
-    s => `${s} Outfit Goals`,
-    s => `${s} Fashion Looks`,
-    s => `${s} Style Goals`,
-    s => `${s} Look Inspo`,
-    s => `${s} Outfit Styles`,
-    s => `${s} Fashion Styles`,
-];
+
 
 /**
  * Extracts the human-readable keyword phrase from a URL slug.
@@ -195,14 +163,13 @@ CRITICAL RULES:
 
 CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". Ensure the description flows naturally with this tone so that multiple similar topics do not sound repetitive.
 
-// Return ONLY a valid raw JSON object. NO markdown code blocks. NO backticks.
-{${categorySchemaField}
-  "title": "The full, original title. Ensure perfect grammar and NO numerical redundancy (e.g., use '30th' NOT '30 30th').",
-  "shortOverlayTitle": "${slugKeyword ? `A Pinterest-style overlay title that is a variation of the URL topic '${slugKeyword}'. Variation #${variationIndex} — choose a FRESH angle from this list (rotate, do not repeat): exact phrase, '${slugKeyword} Ideas', '${slugKeyword} Inspo', '${slugKeyword} Styling Ideas', '${slugKeyword} Styles', '${slugKeyword} Fits', '${slugKeyword} Fits Inspo', '${slugKeyword} Looks', '${slugKeyword} Guide', '${slugKeyword} Tips'. CRITICAL: NEVER invent a number prefix. NEVER add a number unless the URL slug itself starts with a number (e.g. '30-airport-outfits'). Max 6 words.` : 'Short overlay title. No number prefix. Max 6 words.'}",
-  "description": "A compelling, keyword-rich description between 100 and 800 characters. The annotated keywords should blend naturally into the description text for SEO purposes. NO hashtags.",
-  "keywords": "comma separated list of 5-8 SEO keywords",
-  "generatedBoardName": "The Pinterest board name to use (either from the EXISTING BOARDS list or a new high-quality name)",
-  "imagePrompt": "A highly detailed image prompt. Describe ONLY the specific clothing, hairstyle, and outfit textures (e.g., knitted embroidered cardigan, silk pants, lace trim, denim, leather). DO NOT specify an environment or background setting (e.g., do not say 'on a street' or 'in a room'), as the setting will be injected later. The subject MUST always be female unless the URL specifically dictates otherwise. ONE SINGLE UNIFIED PHOTO. NO Grid, NO Collage. NO text."
+{
+  "title": "SEO title (e.g., '13 Best Ways to Style Sweatpants')",
+  "overlayText": "Visual hook (MUST include keyword, e.g., 'Style Sweatpants'). Max 25 chars.",
+  "description": "Engaging description with keywords. Max 500 chars.",
+  "keywords": "5 keywords",
+  "generatedBoardName": "Board name",
+  "imagePrompt": "Detailed photography prompt. NO TEXT."
 }
 `;
                             // Phase 1: Verified Smart Text Generation Fallback Chain
@@ -284,9 +251,8 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
                         const negativeInstructions = "Do not include any text, watermarks, logos, or signatures. Do not render CGI, 3D renders, cartoons, anime, illustrations, or paintings. Avoid extra fingers, deformed hands, extra limbs, or distorted anatomy. Avoid harsh unnatural lighting, oversaturated colors, or plastic-looking skin. Do not crop the head. No collages or split images.";
                         const finalImagePrompt = `${baselinePrompt} ${textData.imagePrompt} CRITICAL AESTHETIC RULES: ${specificAesthetic} ${specificTips} ${negativeInstructions}`;
 
-                        // --- Overlay title is computed HERE (outer scope) so generatedPin can access it ---
-                        const slugBase = slugKeyword || (textData.shortOverlayTitle || textData.title || 'Style Inspiration').trim();
-                        const overlayTitle = TITLE_ANGLES[i % TITLE_ANGLES.length](slugBase).trim();
+                        // --- Intelligent Overlay Logic (Matched with scrape-generate) ---
+                        let finalOverlay = textData.overlayText || slugKeyword || 'Inspiration';
                         const templatesList = ['top_bar', 'cta_button', 'big_center'];
                         const template = templatesList[Math.floor(Math.random() * templatesList.length)];
 
@@ -374,7 +340,7 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
                                 }
 
                              // Composite Image + Canvas PNG overlay using sharp (PNG compositing works everywhere)
-                             const overlayPngBuffer = generateOverlayBuffer(overlayTitle, template);
+                             const overlayPngBuffer = generateOverlayBuffer(finalOverlay, template);
                              const overlayPngReady = await sharp(overlayPngBuffer).png().toBuffer();
                              const compositedBuffer = await sharp(rawBuffer)
                                 .resize(1080, 1920, { fit: 'cover' })
@@ -382,10 +348,10 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
                                 .jpeg({ quality: 90 })
                                 .toBuffer();
 
-                            // --- PHASE 4: UPLOAD TO IMGBB ---
-                            const formData = new FormData();
-                            formData.append('image', compositedBuffer.toString('base64'));
-                            formData.append('name', overlayTitle);
+                             // --- PHASE 4: UPLOAD TO IMGBB ---
+                             const formData = new FormData();
+                             formData.append('image', compositedBuffer.toString('base64'));
+                             formData.append('name', finalOverlay);
 
                             const imgbbResponse = await fetch(`https://api.imgbb.com/1/upload?key=${process.env.IMGBB_API_KEY}`, {
                                 method: 'POST',
@@ -413,7 +379,8 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
                         const generatedPin = {
                             id: Date.now() + i,
                             sourceUrl: url,
-                            title: overlayTitle,  // Use the rotated variation title as the Pinterest card title
+                            title: textData.title,
+                            overlayText: finalOverlay,
                             description: textData.description.substring(0, 500),
                             imageUrl: finalImageUrl,
                             boardName: textData.generatedBoardName || 'Automated Ideas',
