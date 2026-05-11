@@ -130,19 +130,18 @@ export async function POST(req) {
                         const task = async () => {
                             try {
                                 const template = templatePool[Math.floor(Math.random() * templatePool.length)];
-                                const textPrompt = `You are a professional Pinterest Manager.
+                                const textPrompt = `You are a professional Pinterest Content Creator. 
 Task: Write metadata for an image from "${jobSourceUrl || imageUrl}".
 Niche: ${niche}
-Alt Text: ${imageAlt || 'N/A'}
 Topic: ${slugKeyword || 'Inspiration'}
 
-REQUIRED JSON FORMAT (Strictly return ONLY raw JSON):
+REQUIRED JSON FORMAT (Return ONLY raw JSON):
 {
-  "title": "SEO-optimized pin title",
-  "overlayText": "Short, punchy, click-worthy text for image overlay (MAX 25 characters, NO long sentences)",
-  "description": "Compelling 250-character description with keywords",
-  "keywords": "comma, separated, relevant, keywords",
-  "generatedBoardName": "Recommended board name"
+  "title": "A beautiful, human-readable SEO title (e.g., '13 Best Ways to Style Sweatpants for a Casual Look')",
+  "overlayText": "A punchy, meaningful hook for the image (e.g., 'Style Sweatpants', 'Casual Chic', 'Sweatpants Guide'). MUST make sense and be under 28 chars.",
+  "description": "Engaging description (250 chars) with a call to action.",
+  "keywords": "5-8 keywords",
+  "generatedBoardName": "Relevant board"
 }`;
 
                                 let textData = null;
@@ -183,21 +182,20 @@ REQUIRED JSON FORMAT (Strictly return ONLY raw JSON):
                                 if (!textData) {
                                     const base = slugKeyword || 'Style Inspiration';
                                     textData = {
-                                        title: `${base} ${v + 1}`,
-                                        overlayText: base.length > 20 ? base.substring(0, 18) + '...' : base,
-                                        description: `Discover the best ${base} for your next ${niche} project. Follow for more ${niche} inspiration and tips.`,
-                                        keywords: `${base.toLowerCase()}, ${niche.toLowerCase()}, inspiration`,
-                                        generatedBoardName: niche !== 'Auto-Detect (AI)' ? niche : 'General Inspo'
+                                        title: base,
+                                        overlayText: base,
+                                        description: `The ultimate guide to ${base}. Discover the best tips and inspiration for your next ${niche} look.`,
+                                        keywords: `${base.toLowerCase()}, ${niche.toLowerCase()}`,
+                                        generatedBoardName: niche !== 'Auto-Detect (AI)' ? niche : 'Style Guide'
                                     };
                                 }
 
-                                const rawOverlay = textData.overlayText || slugKeyword || 'Inspiration';
-                                // Limit overlay length to prevent "weird/long" titles
-                                let finalOverlay = rawOverlay.length > 30 ? rawOverlay.substring(0, 27) + '...' : rawOverlay;
+                                let finalOverlay = textData.overlayText || slugKeyword || 'Inspiration';
                                 
-                                // Randomly prefix with count if it's a listicle
-                                if (imageCount > 1 && Math.random() > 0.3) {
-                                    finalOverlay = `${imageCount} ${finalOverlay}`;
+                                // Smart prefix for listicles only if it's the first word and fits
+                                if (imageCount > 1 && !finalOverlay.toLowerCase().includes('way')) {
+                                    if (finalOverlay.length < 20) finalOverlay = `${imageCount} Ways to ${finalOverlay}`;
+                                    else finalOverlay = `${imageCount} Ideas`;
                                 }
 
                                 const finalImageUrl = await applyTemplate(imageUrl, finalOverlay, template, effectiveImgbbKey);
@@ -211,7 +209,7 @@ REQUIRED JSON FORMAT (Strictly return ONLY raw JSON):
                                     keywords: textData.keywords,
                                     boardName: textData.generatedBoardName || 'My Boards',
                                     appliedTemplate: template,
-                                    versionTag: '3.7-INTELLIGENT-OVERLAY',
+                                    versionTag: '3.8-HUMAN-CENTRIC',
                                 };
 
                                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(pin)}\n\n`));
