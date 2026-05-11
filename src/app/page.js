@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
     FiImage, FiDownload, FiZap, FiSearch,
-    FiTrash2, FiGrid, FiSettings, FiCalendar
+    FiTrash2, FiGrid, FiSettings, FiCalendar, FiCpu
 } from 'react-icons/fi';
 import PinCard from '@/components/PinCard';
 import PinModal from '@/components/PinModal';
@@ -14,7 +14,7 @@ import { exportToPinterestCSV } from '@/utils/csvExport';
 
 export default function Home() {
   // ── Sidebar navigation ────────────────────────────────────────────────────
-  const [sidebarTab, setSidebarTab] = useState('create'); // 'create' | 'settings' | 'schedule'
+  const [sidebarTab, setSidebarTab] = useState('create'); // 'create' | 'settings' | 'schedule' | 'automation'
 
   // ── Core state ────────────────────────────────────────────────────────────
   const [inputMode, setInputMode] = useState('ai'); // 'ai' | 'scrape'
@@ -22,6 +22,10 @@ export default function Home() {
   const [apiKey, setApiKey] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
   const [nvidiaKey, setNvidiaKey] = useState('');
+  const [wpUrl, setWpUrl] = useState('');
+  const [wpUser, setWpUser] = useState('');
+  const [wpAppPass, setWpAppPass] = useState('');
+  const [dailyPinLimit, setDailyPinLimit] = useState('');
   const [existingBoards, setExistingBoards] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPins, setGeneratedPins] = useState([]);
@@ -35,10 +39,18 @@ export default function Home() {
     const g = localStorage.getItem('pinterest_tool_gemini_key');
     const n = localStorage.getItem('pinterest_tool_nvidia_key');
     const b = localStorage.getItem('pinterest_tool_existing_boards');
+    const wpu = localStorage.getItem('pinterest_tool_wp_url');
+    const wpun = localStorage.getItem('pinterest_tool_wp_user');
+    const wpap = localStorage.getItem('pinterest_tool_wp_apppass');
+    const dpl = localStorage.getItem('pinterest_tool_daily_pin_limit');
     if (k) setApiKey(k);
     if (g) setGeminiKey(g);
     if (n) setNvidiaKey(n);
     if (b) setExistingBoards(b);
+    if (wpu) setWpUrl(wpu);
+    if (wpun) setWpUser(wpun);
+    if (wpap) setWpAppPass(wpap);
+    if (dpl) setDailyPinLimit(dpl);
   }, []);
 
   // ── AI Generate handler (unchanged) ──────────────────────────────────────
@@ -154,8 +166,9 @@ export default function Home() {
   // ── Sidebar tab definitions ───────────────────────────────────────────────
   const TABS = [
     { id: 'create', icon: <FiZap size={12} />, label: 'Create' },
-    { id: 'settings', icon: <FiSettings size={12} />, label: 'Settings' },
     { id: 'schedule', icon: <FiCalendar size={12} />, label: 'Schedule' },
+    { id: 'automation', icon: <FiCpu size={12} />, label: 'Automation' },
+    { id: 'settings', icon: <FiSettings size={12} />, label: 'Settings' },
   ];
 
   return (
@@ -291,12 +304,89 @@ export default function Home() {
         {/* ── SETTINGS TAB ─────────────────────────────────────────────── */}
         {sidebarTab === 'settings' && (
           <SettingsPanel
-            onSave={({ apiKey: k, geminiKey: g, nvidiaKey: n }) => {
+            onSave={({ apiKey: k, geminiKey: g, nvidiaKey: n, wpUrl: wpu, wpUser: wpun, wpAppPass: wpap, dailyPinLimit: dpl }) => {
               setApiKey(k);
               setGeminiKey(g);
               setNvidiaKey(n);
+              setWpUrl(wpu);
+              setWpUser(wpun);
+              setWpAppPass(wpap);
+              setDailyPinLimit(dpl);
             }}
           />
+        )}
+
+        {/* ── AUTOMATION TAB ───────────────────────────────────────────── */}
+        {sidebarTab === 'automation' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{
+                background: 'rgba(108,56,255,0.05)',
+                border: '1px solid rgba(108,56,255,0.12)',
+                borderRadius: 'var(--radius-md)',
+                padding: '1rem',
+                fontSize: '0.8rem',
+                color: 'var(--foreground)',
+                lineHeight: 1.5,
+            }}>
+                <h3 style={{ margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--primary)' }}>
+                    <FiCpu /> Auto-Scheduler
+                </h3>
+                <p style={{ margin: '0 0 1rem 0', color: 'var(--text-muted)' }}>
+                    The scheduler will connect to your WordPress site ({wpUrl || 'Not configured in Settings'}), find pending articles, extract images, and automatically generate pins for them using AI.
+                </p>
+                <button
+                    className="btn btn-primary"
+                    style={{ width: '100%', borderRadius: '100px' }}
+                    onClick={async () => {
+                        if (!wpUrl || !wpUser || !wpAppPass) {
+                            alert('Please configure WordPress settings in the Settings tab first.');
+                            return;
+                        }
+                        setIsGenerating(true);
+                        try {
+                            const res = await fetch('/api/scheduler/run', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'x-api-key': apiKey
+                                },
+                                body: JSON.stringify({ wpUrl, wpUser, wpAppPass, dailyPinLimit, geminiKey, nvidiaKey })
+                            });
+                            const data = await res.json();
+                            if (res.ok) {
+                                alert(`Success! Generated ${data.generated} pins automatically.`);
+                                if (data.pins && data.pins.length > 0) {
+                                    // Map to the format expected by the UI
+                                    const newPins = data.pins.map(p => ({
+                                        id: Date.now() + Math.random().toString(),
+                                        imageUrl: p.imageUrl,
+                                        title: p.title,
+                                        description: p.description,
+                                        board: p.boardName,
+                                        link: p.sourceUrl,
+                                        status: 'ready'
+                                    }));
+                                    setGeneratedPins(prev => [...prev, ...newPins]);
+                                }
+                            } else {
+                                alert(`Scheduler Error: ${data.error}`);
+                            }
+                        } catch (err) {
+                            alert('Failed to trigger scheduler.');
+                        } finally {
+                            setIsGenerating(false);
+                        }
+                    }}
+                    disabled={isGenerating}
+                >
+                    {isGenerating ? 'Running Schedule...' : 'Trigger Daily Run Now'}
+                </button>
+            </div>
+            
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'center', padding: '0 1rem' }}>
+                <strong>Note:</strong> To run this automatically every day, ensure your Vercel project is deployed with `vercel.json` crons enabled and environment variables set.
+            </div>
+          </div>
         )}
 
         {/* ── SCHEDULE TAB ─────────────────────────────────────────────── */}

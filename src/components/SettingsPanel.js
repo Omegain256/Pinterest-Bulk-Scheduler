@@ -34,7 +34,40 @@ const FIELDS = [
         hint: 'Used specifically for the Scrape URL generation feature.',
         optional: true,
     },
+    {
+        id: 'wpUrl',
+        storageKey: 'pinterest_tool_wp_url',
+        label: 'WordPress Site URL',
+        placeholder: 'https://yourwebsite.com',
+        hint: 'Used for automation. For Vercel Cron, you MUST also set WP_URL in Vercel.',
+        optional: true,
+    },
+    {
+        id: 'wpUser',
+        storageKey: 'pinterest_tool_wp_user',
+        label: 'WordPress Username',
+        placeholder: 'admin',
+        hint: 'For Vercel Cron, set WP_USER in Vercel.',
+        optional: true,
+    },
+    {
+        id: 'wpAppPass',
+        storageKey: 'pinterest_tool_wp_apppass',
+        label: 'WP Application Password',
+        placeholder: 'xxxx xxxx xxxx xxxx',
+        hint: 'For Vercel Cron, set WP_APP_PASS in Vercel. Generate in WP Profile.',
+        optional: true,
+    },
+    {
+        id: 'dailyPinLimit',
+        storageKey: 'pinterest_tool_daily_pin_limit',
+        label: 'Daily Pin Limit',
+        placeholder: '5',
+        hint: 'For Vercel Cron, set DAILY_PIN_LIMIT in Vercel.',
+        optional: true,
+    },
 ];
+
 
 export default function SettingsPanel({ onSave }) {
     const getInitial = (field) => {
@@ -68,7 +101,12 @@ export default function SettingsPanel({ onSave }) {
             geminiKey: values.geminiKey.trim(),
             imgbbKey: values.imgbbKey.trim(),
             nvidiaKey: values.nvidiaKey.trim(),
+            wpUrl: values.wpUrl.trim(),
+            wpUser: values.wpUser.trim(),
+            wpAppPass: values.wpAppPass.trim(),
+            dailyPinLimit: values.dailyPinLimit.trim(),
         });
+
         setSaved(true);
         setTimeout(() => setSaved(false), 2500);
     };
