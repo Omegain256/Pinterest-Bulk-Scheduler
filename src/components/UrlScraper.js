@@ -149,7 +149,11 @@ export default function UrlScraper({ apiKey, geminiKey, nvidiaKey, niche, existi
                     buffer = events.pop() || '';
                     for (const ev of events) {
                         if (ev.startsWith('data: ')) {
-                            try { onPinGenerated(JSON.parse(ev.substring(6))); } catch (_) {}
+                            try {
+                                const data = JSON.parse(ev.substring(6));
+                                if (data.status === 'started') continue; // Ignore heartbeat status
+                                onPinGenerated(data);
+                            } catch (_) {}
                         }
                     }
                 }

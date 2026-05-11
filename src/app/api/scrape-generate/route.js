@@ -119,7 +119,19 @@ export async function POST(req) {
                         const task = async () => {
                             try {
                                 const template = templatePool[Math.floor(Math.random() * templatePool.length)];
-                                const textPrompt = `Pinterest JSON for: ${jobSourceUrl || imageUrl}. Niche: ${niche}. Alt: ${imageAlt || 'N/A'}. ${slugKeyword ? `Topic: ${slugKeyword}` : ''}. Return raw JSON {title, description, keywords, generatedBoardName}.`;
+                                const textPrompt = `You are a professional Pinterest manager. Write high-quality pin metadata for this image:
+Source: ${jobSourceUrl || imageUrl}
+Context: ${niche}
+Alt Text: ${imageAlt || 'N/A'}
+${slugKeyword ? `Specific Topic: ${slugKeyword}` : ''}
+
+REQUIRED JSON FORMAT (Return ONLY raw JSON):
+{
+  "title": "Engaging, click-worthy title (max 60 chars)",
+  "description": "Rich, keyword-optimized description (200-400 characters). Focus on benefits and inspiration.",
+  "keywords": "5-8 relevant comma-separated keywords",
+  "generatedBoardName": "Best fitting board name"
+}`;
 
                                 let textData = null;
 
