@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import axios from 'axios';
 import { load } from 'cheerio';
 
+export const maxDuration = 60; // Increase Vercel function timeout
+export const runtime = 'nodejs';
+
 export async function POST(req) {
     try {
         const apiKey = req.headers.get('x-api-key')?.trim();
@@ -22,16 +25,23 @@ export async function POST(req) {
         let pageHtml;
         try {
             const response = await axios.get(url, {
-                timeout: 25000,
+                timeout: 45000, // 45 seconds for slow sites
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
                     'Accept-Language': 'en-US,en;q=0.9',
-                }
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache',
+                    'Referer': 'https://www.google.com/'
+                },
+                maxRedirects: 5,
+                validateStatus: (status) => status >= 200 && status < 300
             });
             pageHtml = response.data;
         } catch (fetchErr) {
-            return NextResponse.json({ error: `Could not fetch URL: ${fetchErr.message}` }, { status: 422 });
+            return NextResponse.json({ 
+                error: `Could not fetch URL: ${fetchErr.message}. The website might be blocking scrapers or is simply too slow.` 
+            }, { status: 422 });
         }
 
         const $ = load(pageHtml);
