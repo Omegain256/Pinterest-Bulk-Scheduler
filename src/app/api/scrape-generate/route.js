@@ -133,6 +133,26 @@ REQUIRED JSON FORMAT (Return ONLY raw JSON):
   "generatedBoardName": "Best fitting board name"
 }`;
 
+                                // Helper to extract JSON from messy AI strings
+                                const extractJSON = (str) => {
+                                    try {
+                                        // 1. Try direct parse
+                                        return JSON.parse(str);
+                                    } catch (e) {
+                                        // 2. Try to find the first { and last }
+                                        const start = str.indexOf('{');
+                                        const end = str.lastIndexOf('}');
+                                        if (start !== -1 && end !== -1) {
+                                            try {
+                                                return JSON.parse(str.substring(start, end + 1));
+                                            } catch (e2) {
+                                                console.error("[JSON Extract Fail]", e2.message);
+                                            }
+                                        }
+                                        return null;
+                                    }
+                                };
+
                                 let textData = null;
 
                                 // 1. Try Minimax with tight timeout
@@ -141,13 +161,13 @@ REQUIRED JSON FORMAT (Return ONLY raw JSON):
                                         const completion = await nvidiaClient.chat.completions.create({
                                             model: "minimaxai/minimax-m2.7",
                                             messages: [{ role: "user", content: textPrompt }],
-                                            max_tokens: 500,
+                                            max_tokens: 800,
                                         });
                                         const msg = completion.choices?.[0]?.message;
                                         const raw = (msg?.content || msg?.reasoning_content || '').trim();
                                         if (raw) {
-                                            const clean = raw.replace(/^```json/i, '').replace(/```$/g, '').trim();
-                                            textData = JSON.parse(clean);
+                                            textData = extractJSON(raw);
+                                            if (textData) console.log(`[Minimax] Success for pin ${pIdx}`);
                                         }
                                     } catch (err) { console.warn(`[NVIDIA Fail] ${err.message}`); }
                                 }
@@ -156,7 +176,7 @@ REQUIRED JSON FORMAT (Return ONLY raw JSON):
                                 if (!textData && effectiveGeminiKey) {
                                     try {
                                         const abort = new AbortController();
-                                        const tid = setTimeout(() => abort.abort(), 10000);
+                                        const tid = setTimeout(() => abort.abort(), 12000);
                                         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${effectiveGeminiKey}`, {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
@@ -167,8 +187,8 @@ REQUIRED JSON FORMAT (Return ONLY raw JSON):
                                         const json = await res.json();
                                         const raw = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
                                         if (raw) {
-                                            const clean = raw.replace(/^```json/i, '').replace(/```$/g, '').trim();
-                                            textData = JSON.parse(clean);
+                                            textData = extractJSON(raw);
+                                            if (textData) console.log(`[Gemini] Success for pin ${pIdx}`);
                                         }
                                     } catch (err) { console.warn(`[Gemini Fail] ${err.message}`); }
                                 }
