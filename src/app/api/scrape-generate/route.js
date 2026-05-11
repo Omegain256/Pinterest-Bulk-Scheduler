@@ -5,8 +5,12 @@ import sharp from 'sharp';
 import OpenAI from 'openai';
 import { generateOverlayBuffer } from '@/utils/overlayEngine.js';
 
-// --- CACHE BUST RE-EVALUATION LOGIC ---
-console.log("[INIT] Reloaded /api/scrape-generate Route Handler - V3.4 High Compatibility");
+// Vercel deployment config: Ensure we stay on Node.js runtime for sharp/@napi-rs/canvas
+export const runtime = 'nodejs';
+// Attempt to increase timeout (only works on Pro/Enterprise, but doesn't hurt)
+export const maxDuration = 60; 
+
+console.log("[INIT] Reloaded /api/scrape-generate - V3.5 Production Hardened");
 
 const TITLE_ANGLES = [
     s => s, s => `${s} Ideas`, s => `${s} Inspo`, s => `${s} Styling Ideas`, s => `${s} Styles`,
@@ -18,23 +22,12 @@ const TITLE_ANGLES = [
     s => `${s} Style Goals`, s => `${s} Look Inspo`, s => `${s} Outfit Styles`, s => `${s} Fashion Styles`,
 ];
 
-async function uploadToImgBB(imageBuffer, imgbbKey) {
-    const base64 = imageBuffer.toString('base64');
-    const params = new URLSearchParams({ key: imgbbKey, image: base64 });
-    const res = await axios.post('https://api.imgbb.com/1/upload', params.toString(), {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        timeout: 25000,
-    });
-    if (!res.data?.data?.url) throw new Error('ImgBB upload failed');
-    return res.data.data.url;
-}
-
 async function applyTemplate(imageUrl, title, template, imgbbKey) {
     if (template === 'minimal') return imageUrl;
     try {
         const res = await axios.get(imageUrl, {
             responseType: 'arraybuffer',
-            timeout: 15000,
+            timeout: 8000,
             headers: { 'User-Agent': 'Mozilla/5.0' }
         });
         const imageBuffer = Buffer.from(res.data);
@@ -49,9 +42,17 @@ async function applyTemplate(imageUrl, title, template, imgbbKey) {
             .composite([{ input: overlayPng, top: 0, left: 0, blend: 'over' }])
             .jpeg({ quality: 88 })
             .toBuffer();
+
         if (imgbbKey) {
-            try { return await uploadToImgBB(compositedBuffer, imgbbKey); }
-            catch (err) { console.warn(`[ImgBB Fail] ${err.message}`); }
+            try {
+                const b64 = compositedBuffer.toString('base64');
+                const params = new URLSearchParams({ key: imgbbKey, image: b64 });
+                const res = await axios.post('https://api.imgbb.com/1/upload', params.toString(), {
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    timeout: 15000,
+                });
+                if (res.data?.data?.url) return res.data.data.url;
+            } catch (err) { console.warn(`[ImgBB Fail] ${err.message}`); }
         }
         return `data:image/jpeg;base64,${compositedBuffer.toString('base64')}`;
     } catch (err) {
@@ -93,16 +94,16 @@ export async function POST(req) {
         const nvidiaClient = effectiveNvidiaKey ? new OpenAI({
             apiKey: effectiveNvidiaKey,
             baseURL: "https://integrate.api.nvidia.com/v1",
-            timeout: 30000 
+            timeout: 12000 // Tight 12s timeout for AI to avoid Vercel termination
         }) : null;
 
         const stream = new ReadableStream({
             async start(controller) {
-                // Send initial heartbeat to prevent frontend "Generating..." hang
+                // Heartbeat to keep connection alive
                 controller.enqueue(encoder.encode(`data: {"status":"started"}\n\n`));
 
                 let globalPinIndex = 0;
-                const limit = 5;
+                const limit = 3; // Reduced concurrency to avoid resource spikes on Vercel
                 const executing = new Set();
                 const tasks = [];
                 const historyTitles = [];
@@ -114,9 +115,7 @@ export async function POST(req) {
                     const count = Math.max(1, Math.min(10, variationCount || 1));
 
                     for (let v = 0; v < count; v++) {
-                        const vIdx = v;
                         const pIdx = globalPinIndex++;
-
                         const task = async () => {
                             try {
                                 const template = templatePool[Math.floor(Math.random() * templatePool.length)];
@@ -124,12 +123,13 @@ export async function POST(req) {
 
                                 let textData = null;
 
+                                // 1. Try Minimax with tight timeout
                                 if (nvidiaClient) {
                                     try {
                                         const completion = await nvidiaClient.chat.completions.create({
                                             model: "minimaxai/minimax-m2.7",
                                             messages: [{ role: "user", content: textPrompt }],
-                                            max_tokens: 800,
+                                            max_tokens: 500,
                                         });
                                         const msg = completion.choices?.[0]?.message;
                                         const raw = (msg?.content || msg?.reasoning_content || '').trim();
@@ -137,28 +137,28 @@ export async function POST(req) {
                                             const clean = raw.replace(/^```json/i, '').replace(/```$/g, '').trim();
                                             textData = JSON.parse(clean);
                                         }
-                                    } catch (err) { console.warn(`[Minimax Fail] ${pIdx}: ${err.message}`); }
+                                    } catch (err) { console.warn(`[NVIDIA Fail] ${err.message}`); }
                                 }
 
+                                // 2. Fallback Gemini with tight timeout
                                 if (!textData && effectiveGeminiKey) {
                                     try {
-                                        // Standard fetch with AbortController for max compatibility
-                                        const controller = new AbortController();
-                                        const id = setTimeout(() => controller.abort(), 15000);
+                                        const abort = new AbortController();
+                                        const tid = setTimeout(() => abort.abort(), 10000);
                                         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${effectiveGeminiKey}`, {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ contents: [{ parts: [{ text: textPrompt }] }] }),
-                                            signal: controller.signal
+                                            signal: abort.signal
                                         });
-                                        clearTimeout(id);
+                                        clearTimeout(tid);
                                         const json = await res.json();
                                         const raw = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
                                         if (raw) {
                                             const clean = raw.replace(/^```json/i, '').replace(/```$/g, '').trim();
                                             textData = JSON.parse(clean);
                                         }
-                                    } catch (err) { console.warn(`[Gemini Fail] ${pIdx}: ${err.message}`); }
+                                    } catch (err) { console.warn(`[Gemini Fail] ${err.message}`); }
                                 }
 
                                 if (!textData) {
@@ -187,11 +187,11 @@ export async function POST(req) {
                                     keywords: textData.keywords,
                                     boardName: textData.generatedBoardName || 'My Boards',
                                     appliedTemplate: template,
-                                    versionTag: '3.4-SCRAPE-OPT',
+                                    versionTag: '3.5-PROD-STABLE',
                                 };
 
                                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(pin)}\n\n`));
-                            } catch (err) { console.error(`[Fatal Pin Error] ${pIdx}:`, err); }
+                            } catch (err) { console.error(`[Pin Error] ${pIdx}:`, err); }
                         };
 
                         const promise = (async () => {
