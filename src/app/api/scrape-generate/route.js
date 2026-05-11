@@ -98,7 +98,7 @@ export async function POST(req) {
         const effectiveGeminiKey = (geminiKey || process.env.GEMINI_API_KEY)?.trim();
         const effectiveNvidiaKey = (nvidiaKey || process.env.NVIDIA_API_KEY)?.trim();
         const effectiveImgbbKey = (clientImgbbKey || process.env.IMGBB_API_KEY)?.trim();
-        const templatePool = templates?.length > 0 ? templates : ['top_bar', 'cta_button', 'big_center', 'minimal'];
+        const templatePool = templates?.length > 0 ? templates : ['top_bar', 'cta_button', 'big_center'];
 
         if (!jobs?.length) return NextResponse.json({ error: 'No jobs' }, { status: 400 });
 
@@ -193,10 +193,19 @@ REQUIRED JSON FORMAT (Return ONLY raw JSON):
 
                                 let finalOverlay = textData.overlayText || slugKeyword || 'Inspiration';
                                 
-                                // Smart prefix for listicles
+                                // Smart prefix for listicles: Include keywords, avoid generic "X Ideas"
                                 if (imageCount > 1 && !finalOverlay.toLowerCase().includes('way')) {
-                                    if (finalOverlay.length < 20) finalOverlay = `${imageCount} Ways to ${finalOverlay}`;
-                                    else finalOverlay = `${imageCount} Ideas`;
+                                    const withWays = `${imageCount} Ways to ${finalOverlay}`;
+                                    const withIdeas = `${imageCount} ${finalOverlay} Ideas`;
+                                    
+                                    if (withWays.length <= 30) finalOverlay = withWays;
+                                    else if (withIdeas.length <= 30) finalOverlay = withIdeas;
+                                    else finalOverlay = `${imageCount} ${finalOverlay}`; // Just number + keyword
+                                }
+                                
+                                // Final safety truncate only if absolutely necessary (mid-word aware)
+                                if (finalOverlay.length > 35) {
+                                    finalOverlay = finalOverlay.split(' ').slice(0, 4).join(' ');
                                 }
 
                                 const finalImageUrl = await applyTemplate(imageUrl, finalOverlay, template, effectiveImgbbKey);
