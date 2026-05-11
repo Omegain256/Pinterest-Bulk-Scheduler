@@ -130,7 +130,20 @@ export async function POST(req) {
                         const task = async () => {
                             try {
                                 const template = templatePool[Math.floor(Math.random() * templatePool.length)];
-                                const textPrompt = `You are a Pinterest Manager. Task: Write metadata for this image from "${jobSourceUrl || imageUrl}". Niche: ${niche}. Alt: ${imageAlt || 'N/A'}. Topic: ${slugKeyword || 'Inspiration'}. Return ONLY valid JSON: {"title": "Title", "description": "250-char description", "keywords": "list, of, words", "generatedBoardName": "Board"}`;
+                                const textPrompt = `You are a professional Pinterest Manager.
+Task: Write metadata for an image from "${jobSourceUrl || imageUrl}".
+Niche: ${niche}
+Alt Text: ${imageAlt || 'N/A'}
+Topic: ${slugKeyword || 'Inspiration'}
+
+REQUIRED JSON FORMAT (Strictly return ONLY raw JSON):
+{
+  "title": "SEO-optimized pin title",
+  "overlayText": "Short, punchy, click-worthy text for image overlay (MAX 25 characters, NO long sentences)",
+  "description": "Compelling 250-character description with keywords",
+  "keywords": "comma, separated, relevant, keywords",
+  "generatedBoardName": "Recommended board name"
+}`;
 
                                 let textData = null;
 
@@ -166,37 +179,39 @@ export async function POST(req) {
                                     } catch (err) { console.warn(`[Gemini Fail] ${err.message}`); }
                                 }
 
-                                // ── PERMANENT FALLBACK: If both AI fail, generate metadata from slug ──
+                                // ── PERMANENT FALLBACK ──
                                 if (!textData) {
                                     const base = slugKeyword || 'Style Inspiration';
                                     textData = {
                                         title: `${base} ${v + 1}`,
-                                        description: `Looking for the best ${base}? This collection of ${niche} trends is perfect for your next ${base} project. Follow for more ${niche} inspiration and daily style tips.`,
-                                        keywords: `${base.toLowerCase().replace(/\s+/g, ', ')}, ${niche.toLowerCase()}, inspiration, style`,
-                                        generatedBoardName: niche !== 'Auto-Detect (AI)' ? niche : 'General Inspiration'
+                                        overlayText: base.length > 20 ? base.substring(0, 18) + '...' : base,
+                                        description: `Discover the best ${base} for your next ${niche} project. Follow for more ${niche} inspiration and tips.`,
+                                        keywords: `${base.toLowerCase()}, ${niche.toLowerCase()}, inspiration`,
+                                        generatedBoardName: niche !== 'Auto-Detect (AI)' ? niche : 'General Inspo'
                                     };
-                                    console.log(`[Permanent Fallback] Generated for pin ${pIdx}`);
                                 }
 
-                                if (textData.title) historyTitles.push(textData.title);
+                                const rawOverlay = textData.overlayText || slugKeyword || 'Inspiration';
+                                // Limit overlay length to prevent "weird/long" titles
+                                let finalOverlay = rawOverlay.length > 30 ? rawOverlay.substring(0, 27) + '...' : rawOverlay;
+                                
+                                // Randomly prefix with count if it's a listicle
+                                if (imageCount > 1 && Math.random() > 0.3) {
+                                    finalOverlay = `${imageCount} ${finalOverlay}`;
+                                }
 
-                                const slugBase = slugKeyword || textData.title || 'Inspiration';
-                                const overlayTitle = imageCount > 1 
-                                    ? `${imageCount} ${TITLE_ANGLES[pIdx % TITLE_ANGLES.length](slugBase)}`
-                                    : TITLE_ANGLES[pIdx % TITLE_ANGLES.length](slugBase);
-
-                                const finalImageUrl = await applyTemplate(imageUrl, overlayTitle, template, effectiveImgbbKey);
+                                const finalImageUrl = await applyTemplate(imageUrl, finalOverlay, template, effectiveImgbbKey);
 
                                 const pin = {
                                     id: `scrape-${Date.now()}-${pIdx}`,
                                     sourceUrl: jobSourceUrl || imageUrl,
                                     imageUrl: finalImageUrl,
-                                    title: overlayTitle,
+                                    title: textData.title,
                                     description: textData.description,
                                     keywords: textData.keywords,
                                     boardName: textData.generatedBoardName || 'My Boards',
                                     appliedTemplate: template,
-                                    versionTag: '3.6-PERMANENT-FIX',
+                                    versionTag: '3.7-INTELLIGENT-OVERLAY',
                                 };
 
                                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(pin)}\n\n`));
