@@ -6,9 +6,8 @@ import OpenAI from 'openai';
 import { generateOverlayBuffer } from '@/utils/overlayEngine.js';
 
 // --- CACHE BUST RE-EVALUATION LOGIC ---
-console.log("[INIT] Reloaded /api/scrape-generate Route Handler - V3.2 Parallel");
+console.log("[INIT] Reloaded /api/scrape-generate Route Handler - V3.3 Optimized");
 
-// Deterministic overlay title rotation — 30 unique angles, no AI needed
 const TITLE_ANGLES = [
     s => s,
     s => `${s} Ideas`,
@@ -42,83 +41,54 @@ const TITLE_ANGLES = [
     s => `${s} Fashion Styles`,
 ];
 
-// ── ImgBB Upload Helper ──────────────────────────────────────────────────────
 async function uploadToImgBB(imageBuffer, imgbbKey) {
     const base64 = imageBuffer.toString('base64');
     const params = new URLSearchParams({ key: imgbbKey, image: base64 });
     const res = await axios.post('https://api.imgbb.com/1/upload', params.toString(), {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        timeout: 20000,
+        timeout: 25000,
     });
     if (!res.data?.data?.url) throw new Error('ImgBB upload failed');
     return res.data.data.url;
 }
 
-// ── Apply template overlay to a scraped image URL ────────────────────────────
 async function applyTemplate(imageUrl, title, template, imgbbKey) {
-    if (template === 'minimal') {
-        return imageUrl;
-    }
+    if (template === 'minimal') return imageUrl;
 
-    let imageBuffer;
     try {
         const res = await axios.get(imageUrl, {
             responseType: 'arraybuffer',
-            timeout: 12000,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (compatible; PinBot/1.0)',
-                'Accept': 'image/*,*/*;q=0.8',
-            }
+            timeout: 15000,
+            headers: { 'User-Agent': 'Mozilla/5.0' }
         });
-        imageBuffer = Buffer.from(res.data);
-    } catch (err) {
-        console.warn(`[TEMPLATE] Could not fetch image ${imageUrl}: ${err.message}`);
-        return imageUrl;
-    }
-
-    let resizedBuffer;
-    try {
-        resizedBuffer = await sharp(imageBuffer)
+        const imageBuffer = Buffer.from(res.data);
+        
+        const resizedBuffer = await sharp(imageBuffer)
             .resize(1080, 1920, { fit: 'cover', position: 'center' })
             .jpeg({ quality: 90 })
             .toBuffer();
-    } catch (err) {
-        console.warn(`[TEMPLATE] sharp resize failed: ${err.message}`);
-        return imageUrl;
-    }
 
-    let overlayBuffer;
-    try {
-        overlayBuffer = generateOverlayBuffer(title, template);
+        const overlayBuffer = generateOverlayBuffer(title, template);
         if (!overlayBuffer) return imageUrl;
-    } catch (err) {
-        console.error(`[TEMPLATE] Overlay render FAILED: ${err.message}`);
-        return imageUrl;
-    }
 
-    let compositedBuffer;
-    try {
         const overlayPng = await sharp(overlayBuffer).png().toBuffer();
-        compositedBuffer = await sharp(resizedBuffer)
+        const compositedBuffer = await sharp(resizedBuffer)
             .composite([{ input: overlayPng, top: 0, left: 0, blend: 'over' }])
             .jpeg({ quality: 88 })
             .toBuffer();
+
+        if (imgbbKey) {
+            try {
+                return await uploadToImgBB(compositedBuffer, imgbbKey);
+            } catch (err) {
+                console.warn(`[ImgBB Fail] ${err.message}`);
+            }
+        }
+        return `data:image/jpeg;base64,${compositedBuffer.toString('base64')}`;
     } catch (err) {
-        console.error(`[TEMPLATE] Composite FAILED: ${err.message}`);
+        console.warn(`[Template Fail] ${err.message}`);
         return imageUrl;
     }
-
-    if (imgbbKey) {
-        try {
-            const uploadedUrl = await uploadToImgBB(compositedBuffer, imgbbKey);
-            return uploadedUrl;
-        } catch (err) {
-            console.warn(`[TEMPLATE] ImgBB upload failed: ${err.message}`);
-        }
-    }
-
-    const b64 = compositedBuffer.toString('base64');
-    return `data:image/jpeg;base64,${b64}`;
 }
 
 function extractSlugKeyword(url) {
@@ -136,81 +106,51 @@ function extractSlugKeyword(url) {
 export async function POST(req) {
     try {
         const apiKey = req.headers.get('x-api-key')?.trim();
-        const expectedKey = process.env.APP_API_KEY?.trim();
-        if (!apiKey || apiKey !== expectedKey) {
+        if (apiKey !== process.env.APP_API_KEY?.trim()) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const {
-            jobs,
-            variationCount,
-            niche,
-            geminiKey,
-            nvidiaKey,
-            existingBoards,
-            templates,
-            imgbbKey: clientImgbbKey,
-        } = await req.json();
+        const { jobs, variationCount, niche, geminiKey, nvidiaKey, existingBoards, templates, imgbbKey: clientImgbbKey } = await req.json();
 
         const effectiveGeminiKey = (geminiKey || process.env.GEMINI_API_KEY)?.trim();
         const effectiveNvidiaKey = (nvidiaKey || process.env.NVIDIA_API_KEY)?.trim();
         const effectiveImgbbKey = (clientImgbbKey || process.env.IMGBB_API_KEY)?.trim();
-        const templatePool = templates && templates.length > 0 ? templates : ['top_bar', 'cta_button', 'big_center', 'minimal'];
+        const templatePool = templates?.length > 0 ? templates : ['top_bar', 'cta_button', 'big_center', 'minimal'];
 
-        if (!jobs || jobs.length === 0) return NextResponse.json({ error: 'No jobs' }, { status: 400 });
+        if (!jobs?.length) return NextResponse.json({ error: 'No jobs' }, { status: 400 });
 
         const encoder = new TextEncoder();
         const historyTitles = [];
         const nvidiaClient = effectiveNvidiaKey ? new OpenAI({
             apiKey: effectiveNvidiaKey,
-            baseURL: "https://integrate.api.nvidia.com/v1"
+            baseURL: "https://integrate.api.nvidia.com/v1",
+            timeout: 30000 // 30s timeout for NVIDIA
         }) : null;
 
         const stream = new ReadableStream({
             async start(controller) {
                 let globalPinIndex = 0;
-                const allTasks = [];
-
-                // Helper to limit concurrency
-                const pLimit = (await import('p-limit')).default(5);
+                
+                // Concurrency control: max 5 at a time
+                const limit = 5;
+                const executing = new Set();
+                const tasks = [];
 
                 for (const job of jobs) {
                     const { imageUrl, imageAlt, sourceUrl: jobSourceUrl, totalScraped: jobTotal } = job;
-                    const image = { src: imageUrl, alt: imageAlt };
                     const slugKeyword = extractSlugKeyword(jobSourceUrl);
                     const imageCount = Math.max(Number(jobTotal) || 0, 1);
                     const count = Math.max(1, Math.min(10, variationCount || 1));
 
                     for (let v = 0; v < count; v++) {
-                        const localVariationIndex = v;
-                        const localPinIndex = globalPinIndex++;
+                        const vIdx = v;
+                        const pIdx = globalPinIndex++;
 
-                        allTasks.push(pLimit(async () => {
+                        const task = async () => {
                             try {
+                                console.log(`[GEN] Starting pin ${pIdx} (Var ${vIdx})`);
                                 const template = templatePool[Math.floor(Math.random() * templatePool.length)];
-                                const isAutoDetect = niche === 'Auto-Detect (AI)';
-                                const nicheInstruction = isAutoDetect
-                                    ? `Analyze context: "Beauty & Makeup", "Hair Styling", "Fashion & Outfits", or "Nails & Beauty".`
-                                    : `Niche: "${niche}".`;
-
-                                const historyPrompt = historyTitles.length > 0
-                                    ? `Avoid repetition: [${historyTitles.slice(-5).join(' | ')}].`
-                                    : '';
-
-                                const textPrompt = `Expert Pinterest writer. Write pin JSON for image:
-Source URL: ${jobSourceUrl || image.src}
-Image alt: ${image.alt || 'N/A'}
-${nicheInstruction}
-${historyPrompt}
-${slugKeyword ? `URL Topic: "${slugKeyword}"` : ''}
-
-Return ONLY valid raw JSON:
-{
-  "title": "Pinterest title",
-  "description": "Keyword-rich description, 100-500 chars.",
-  "keywords": "comma, separated, keywords",
-  "generatedBoardName": "Board name"
-}`;
+                                const textPrompt = `Pinterest JSON for: ${jobSourceUrl || imageUrl}. Niche: ${niche}. Alt: ${imageAlt || 'N/A'}. ${slugKeyword ? `Topic: ${slugKeyword}` : ''}. Return raw JSON {title, description, keywords, generatedBoardName}.`;
 
                                 let textData = null;
 
@@ -220,17 +160,17 @@ Return ONLY valid raw JSON:
                                         const completion = await nvidiaClient.chat.completions.create({
                                             model: "minimaxai/minimax-m2.7",
                                             messages: [{ role: "user", content: textPrompt }],
-                                            temperature: 0.7,
-                                            max_tokens: 1024,
+                                            max_tokens: 800,
                                         });
-                                        const message = completion.choices?.[0]?.message;
-                                        const generated = (message?.content || message?.reasoning_content || '').trim();
-                                        if (generated) {
-                                            const clean = generated.replace(/^```json/i, '').replace(/```$/g, '').trim();
+                                        const msg = completion.choices?.[0]?.message;
+                                        const raw = (msg?.content || msg?.reasoning_content || '').trim();
+                                        if (raw) {
+                                            const clean = raw.replace(/^```json/i, '').replace(/```$/g, '').trim();
                                             textData = JSON.parse(clean);
+                                            console.log(`[MINIMAX] Success for ${pIdx}`);
                                         }
                                     } catch (err) {
-                                        console.warn(`[Minimax Fail] ${err.message}`);
+                                        console.warn(`[Minimax Fail] ${pIdx}: ${err.message}`);
                                     }
                                 }
 
@@ -240,59 +180,73 @@ Return ONLY valid raw JSON:
                                         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${effectiveGeminiKey}`, {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ contents: [{ parts: [{ text: textPrompt }] }] })
+                                            body: JSON.stringify({ contents: [{ parts: [{ text: textPrompt }] }] }),
+                                            signal: AbortSignal.timeout(15000)
                                         });
                                         const json = await res.json();
-                                        const generated = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-                                        if (generated) {
-                                            const clean = generated.replace(/^```json/i, '').replace(/```$/g, '').trim();
+                                        const raw = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+                                        if (raw) {
+                                            const clean = raw.replace(/^```json/i, '').replace(/```$/g, '').trim();
                                             textData = JSON.parse(clean);
+                                            console.log(`[GEMINI] Success for ${pIdx}`);
                                         }
                                     } catch (err) {
-                                        console.warn(`[Gemini Fail] ${err.message}`);
+                                        console.warn(`[Gemini Fail] ${pIdx}: ${err.message}`);
                                     }
                                 }
 
                                 if (!textData) {
                                     textData = {
-                                        title: slugKeyword ? `${slugKeyword} Inspiration` : 'Scraped Image Pin',
-                                        description: 'AI generation failed. Please edit manually.',
-                                        keywords: 'content, style, inspiration',
-                                        generatedBoardName: 'General Inspiration'
+                                        title: slugKeyword ? `${slugKeyword} Inspiration` : 'Style Pin',
+                                        description: 'AI generation failed.',
+                                        keywords: 'style, inspo',
+                                        generatedBoardName: 'Inspiration'
                                     };
                                 }
 
                                 if (textData.title) historyTitles.push(textData.title);
 
-                                // 3. Build Overlay Title
-                                const slugBase = slugKeyword || textData.title || 'Style Inspo';
-                                const angleTitle = TITLE_ANGLES[localPinIndex % TITLE_ANGLES.length](slugBase);
-                                const overlayTitle = imageCount > 1 ? `${imageCount} ${angleTitle}` : angleTitle;
+                                const slugBase = slugKeyword || textData.title || 'Inspiration';
+                                const overlayTitle = imageCount > 1 
+                                    ? `${imageCount} ${TITLE_ANGLES[pIdx % TITLE_ANGLES.length](slugBase)}`
+                                    : TITLE_ANGLES[pIdx % TITLE_ANGLES.length](slugBase);
 
-                                // 4. Apply Template
-                                const finalImageUrl = await applyTemplate(image.src, overlayTitle, template, effectiveImgbbKey);
+                                const finalImageUrl = await applyTemplate(imageUrl, overlayTitle, template, effectiveImgbbKey);
 
                                 const pin = {
-                                    id: `scrape-${Date.now()}-${localPinIndex}`,
-                                    sourceUrl: jobSourceUrl || image.src,
+                                    id: `scrape-${Date.now()}-${pIdx}`,
+                                    sourceUrl: jobSourceUrl || imageUrl,
                                     imageUrl: finalImageUrl,
                                     title: overlayTitle,
                                     description: textData.description,
                                     keywords: textData.keywords,
                                     boardName: textData.generatedBoardName || 'My Boards',
                                     appliedTemplate: template,
-                                    versionTag: '3.2-SCRAPE-CONCURRENT',
+                                    versionTag: '3.3-SCRAPE-OPT',
                                 };
 
                                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(pin)}\n\n`));
+                                console.log(`[DONE] Enqueued pin ${pIdx}`);
                             } catch (err) {
-                                console.error(`[Task Fail]`, err);
+                                console.error(`[Fatal Pin Error] ${pIdx}:`, err);
                             }
-                        }));
+                        };
+
+                        const promise = (async () => {
+                            if (executing.size >= limit) {
+                                await Promise.race(executing);
+                            }
+                            const p = task();
+                            executing.add(p);
+                            await p;
+                            executing.delete(p);
+                        })();
+                        tasks.push(promise);
                     }
                 }
 
-                await Promise.all(allTasks);
+                await Promise.all(tasks);
+                console.log("[STREAM] Closing stream");
                 controller.close();
             }
         });
@@ -300,12 +254,12 @@ Return ONLY valid raw JSON:
         return new Response(stream, {
             headers: {
                 'Content-Type': 'text/event-stream',
-                'Cache-Control': 'no-cache, no-transform',
+                'Cache-Control': 'no-cache',
                 'Connection': 'keep-alive',
             }
         });
     } catch (error) {
-        console.error('Fatal error:', error);
+        console.error('Fatal API error:', error);
         return NextResponse.json({ error: 'Internal Error' }, { status: 500 });
     }
 }
