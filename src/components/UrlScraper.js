@@ -57,7 +57,7 @@ const makeJob = (url = '', position = 1) => ({
 export default function UrlScraper({ apiKey, geminiKey, nvidiaKey, niche, existingBoards, onPinGenerated, isGenerating, setIsGenerating }) {
     const [jobs, setJobs] = useState([makeJob()]);
     const [variationCount, setVariationCount] = useState(1);
-    const [selectedTemplates, setSelectedTemplates] = useState(new Set(['top_bar', 'cta_button', 'big_center', 'minimal']));
+    const [selectedTemplates, setSelectedTemplates] = useState(new Set(['top_bar', 'cta_button', 'big_center']));
     const cache = useRef({});   // url → scraped data
 
     const updateJob = (id, patch) => setJobs(p => p.map(j => j.id === id ? { ...j, ...patch } : j));
