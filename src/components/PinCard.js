@@ -1,8 +1,8 @@
 "use client";
 
-import { FiRefreshCw, FiEdit2 } from 'react-icons/fi';
+import { FiRefreshCw, FiEdit2, FiTrash2 } from 'react-icons/fi';
 
-export default function PinCard({ pin, onEdit, onRegenerate }) {
+export default function PinCard({ pin, onEdit, onRegenerate, onDelete }) {
     return (
         <div
             className="pin-card"
@@ -75,6 +75,26 @@ export default function PinCard({ pin, onEdit, onRegenerate }) {
                     >
                         <FiRefreshCw size={12} className={pin.isRegenerating ? 'animate-spin' : ''} />
                         {pin.isRegenerating ? 'Regenerating…' : 'Regenerate'}
+                    </button>
+                    <button
+                        onClick={e => { e.stopPropagation(); onDelete(); }}
+                        style={{
+                            background: 'rgba(255,59,48,0.25)',
+                            backdropFilter: 'blur(8px)',
+                            WebkitBackdropFilter: 'blur(8px)',
+                            border: '1px solid rgba(255,59,48,0.3)',
+                            borderRadius: '8px',
+                            padding: '0.4rem',
+                            color: 'white',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            transition: 'background 0.15s ease'
+                        }}
+                        title="Delete Pin"
+                    >
+                        <FiTrash2 size={13} />
                     </button>
                 </div>
 

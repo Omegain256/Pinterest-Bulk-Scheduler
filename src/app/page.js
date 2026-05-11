@@ -104,6 +104,10 @@ export default function Home() {
     setGeneratedPins(prev => prev.map(pin => pin.id === id ? { ...pin, [field]: value } : pin));
   };
 
+  const removePin = (id) => {
+    setGeneratedPins(prev => prev.filter(p => p.id !== id));
+  };
+
   const handleRegenerate = async (id) => {
     const pinToRegen = generatedPins.find(p => p.id === id);
     if (!pinToRegen) return;
@@ -402,6 +406,7 @@ export default function Home() {
                 pin={pin}
                 onEdit={setEditingPinId}
                 onRegenerate={handleRegenerate}
+                onDelete={() => removePin(pin.id)}
               />
             ))}
           </div>

@@ -114,7 +114,7 @@ export async function POST(req) {
                 controller.enqueue(encoder.encode(`data: {"status":"started"}\n\n`));
 
                 let globalPinIndex = 0;
-                const limit = 3;
+                const limit = 6;
                 const executing = new Set();
                 const tasks = [];
                 const historyTitles = [];
