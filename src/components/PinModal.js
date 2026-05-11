@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect } from 'react';
-import { FiX, FiRefreshCw, FiExternalLink } from 'react-icons/fi';
+import { FiX, FiRefreshCw, FiExternalLink, FiTrash2 } from 'react-icons/fi';
 
-export default function PinModal({ pin, onClose, onUpdate, onRegenerate, existingBoards = [] }) {
+export default function PinModal({ pin, onClose, onUpdate, onRegenerate, onDelete, existingBoards = [] }) {
     useEffect(() => {
         const handle = (e) => { if (e.key === 'Escape') onClose(); };
         document.addEventListener('keydown', handle);
@@ -247,14 +247,34 @@ export default function PinModal({ pin, onClose, onUpdate, onRegenerate, existin
                     </div>
 
                     {/* Done button */}
-                    <button
-                        onClick={onClose}
-                        className="btn btn-primary"
-                        style={{ borderRadius: '100px', width: '100%', marginTop: 'auto' }}
-                        id="modal-done-btn"
-                    >
-                        Done — Save Changes
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.875rem', marginTop: 'auto' }}>
+                        <button
+                            onClick={onDelete}
+                            className="btn"
+                            style={{ 
+                                borderRadius: '100px', 
+                                padding: '0.65rem 1rem', 
+                                background: 'rgba(255, 59, 48, 0.08)', 
+                                color: 'var(--danger)', 
+                                border: '1px solid rgba(255, 59, 48, 0.15)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                fontWeight: 600
+                            }}
+                            id="modal-delete-btn"
+                        >
+                            <FiTrash2 size={13} /> Delete
+                        </button>
+                        <button
+                            onClick={onClose}
+                            className="btn btn-primary"
+                            style={{ borderRadius: '100px', flex: 1 }}
+                            id="modal-done-btn"
+                        >
+                            Done — Save Changes
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

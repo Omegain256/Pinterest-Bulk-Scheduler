@@ -446,6 +446,7 @@ export default function Home() {
           onClose={() => setEditingPinId(null)}
           onUpdate={handleUpdatePin}
           onRegenerate={handleRegenerate}
+          onDelete={() => { removePin(editingPin.id); setEditingPinId(null); }}
           existingBoards={boardList}
         />
       )}

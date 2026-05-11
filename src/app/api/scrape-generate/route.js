@@ -181,18 +181,19 @@ REQUIRED JSON FORMAT (Return ONLY raw JSON):
                                 // ── PERMANENT FALLBACK ──
                                 if (!textData) {
                                     const base = slugKeyword || 'Style Inspiration';
+                                    const displayNiche = (niche === 'Auto-Detect (AI)' || !niche) ? '' : niche;
                                     textData = {
                                         title: base,
                                         overlayText: base,
-                                        description: `The ultimate guide to ${base}. Discover the best tips and inspiration for your next ${niche} look.`,
-                                        keywords: `${base.toLowerCase()}, ${niche.toLowerCase()}`,
-                                        generatedBoardName: niche !== 'Auto-Detect (AI)' ? niche : 'Style Guide'
+                                        description: `The ultimate guide to ${base}.${displayNiche ? ` Perfect for your next ${displayNiche} project.` : ''} This collection features high-quality ideas and tips to help you master this look.`,
+                                        keywords: `${base.toLowerCase()}, inspiration, style`,
+                                        generatedBoardName: displayNiche || 'Style Guide'
                                     };
                                 }
 
                                 let finalOverlay = textData.overlayText || slugKeyword || 'Inspiration';
                                 
-                                // Smart prefix for listicles only if it's the first word and fits
+                                // Smart prefix for listicles
                                 if (imageCount > 1 && !finalOverlay.toLowerCase().includes('way')) {
                                     if (finalOverlay.length < 20) finalOverlay = `${imageCount} Ways to ${finalOverlay}`;
                                     else finalOverlay = `${imageCount} Ideas`;
@@ -209,7 +210,7 @@ REQUIRED JSON FORMAT (Return ONLY raw JSON):
                                     keywords: textData.keywords,
                                     boardName: textData.generatedBoardName || 'My Boards',
                                     appliedTemplate: template,
-                                    versionTag: '3.8-HUMAN-CENTRIC',
+                                    versionTag: '3.9-HUMAN-FINESSE',
                                 };
 
                                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(pin)}\n\n`));
