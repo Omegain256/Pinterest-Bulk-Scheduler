@@ -137,11 +137,11 @@ Topic: ${slugKeyword || 'Inspiration'}
 
 REQUIRED JSON FORMAT (Return ONLY raw JSON):
 {
-  "title": "A beautiful, human-readable SEO title (e.g., '13 Best Ways to Style Sweatpants for a Casual Look')",
-  "overlayText": "A punchy visual hook that MUST INCLUDE THE MAIN TOPIC/KEYWORD (e.g., 'Style Sweatpants', 'Sweatpants Ideas'). Keep it under 25 chars.",
-  "description": "Engaging description (250 chars) with a call to action.",
-  "keywords": "5-8 keywords",
-  "generatedBoardName": "Relevant board"
+  "title": "SEO title (e.g., '13 Best Ways to Style Sweatpants')",
+  "overlayText": "Visual hook (MUST include keyword, e.g., 'Style Sweatpants'). Max 25 chars. No fragments.",
+  "description": "Engaging 200-char description with keywords.",
+  "keywords": "5 keywords",
+  "generatedBoardName": "Board name"
 }`;
 
                                 let textData = null;
@@ -198,14 +198,15 @@ REQUIRED JSON FORMAT (Return ONLY raw JSON):
                                     const withWays = `${imageCount} Ways to ${finalOverlay}`;
                                     const withIdeas = `${imageCount} ${finalOverlay} Ideas`;
                                     
-                                    if (withWays.length <= 30) finalOverlay = withWays;
-                                    else if (withIdeas.length <= 30) finalOverlay = withIdeas;
+                                    if (withWays.length <= 32) finalOverlay = withWays;
+                                    else if (withIdeas.length <= 32) finalOverlay = withIdeas;
                                     else finalOverlay = `${imageCount} ${finalOverlay}`; // Just number + keyword
                                 }
                                 
-                                // Final safety truncate only if absolutely necessary (mid-word aware)
-                                if (finalOverlay.length > 35) {
-                                    finalOverlay = finalOverlay.split(' ').slice(0, 4).join(' ');
+                                // Safety truncate only at word boundaries and only if extreme
+                                if (finalOverlay.length > 42) {
+                                    const truncated = finalOverlay.substring(0, 40);
+                                    finalOverlay = truncated.substring(0, Math.min(truncated.length, truncated.lastIndexOf(' '))) + '...';
                                 }
 
                                 const finalImageUrl = await applyTemplate(imageUrl, finalOverlay, template, effectiveImgbbKey);
