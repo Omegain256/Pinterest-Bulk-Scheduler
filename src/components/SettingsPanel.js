@@ -26,6 +26,14 @@ const FIELDS = [
         hint: 'Optional. Needed only if you want to host composited template images under your own account.',
         optional: true,
     },
+    {
+        id: 'nvidiaKey',
+        storageKey: 'pinterest_tool_nvidia_key',
+        label: 'NVIDIA API Key (Minimax)',
+        placeholder: 'nvapi-...',
+        hint: 'Used specifically for the Scrape URL generation feature.',
+        optional: true,
+    },
 ];
 
 export default function SettingsPanel({ onSave }) {
@@ -59,6 +67,7 @@ export default function SettingsPanel({ onSave }) {
             apiKey: values.apiKey.trim(),
             geminiKey: values.geminiKey.trim(),
             imgbbKey: values.imgbbKey.trim(),
+            nvidiaKey: values.nvidiaKey.trim(),
         });
         setSaved(true);
         setTimeout(() => setSaved(false), 2500);

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import sharp from 'sharp';
+import OpenAI from 'openai';
 import { generateOverlayBuffer } from '@/utils/overlayEngine.js';
 
 // --- CACHE BUST RE-EVALUATION LOGIC ---
@@ -164,12 +165,14 @@ export async function POST(req) {
             variationCount,
             niche,
             geminiKey,
+            nvidiaKey,
             existingBoards,
             templates,
             imgbbKey: clientImgbbKey,
         } = await req.json();
 
         const effectiveGeminiKey = (geminiKey || process.env.GEMINI_API_KEY)?.trim();
+        const effectiveNvidiaKey = (nvidiaKey || process.env.NVIDIA_API_KEY)?.trim();
         const effectiveImgbbKey = (clientImgbbKey || process.env.IMGBB_API_KEY)?.trim();
         const templatePool = templates && templates.length > 0
             ? templates
@@ -281,25 +284,64 @@ Return ONLY valid raw JSON. NO markdown, NO backticks.
 
                             let textData = null;
 
-                            for (const modelInfo of modelsToTry) {
+                            // ── Phase 1: Try Minimax AI (NVIDIA) ──
+                            if (effectiveNvidiaKey) {
                                 try {
-                                    const REST_URL = `https://generativelanguage.googleapis.com/${modelInfo.v}/models/${modelInfo.m}:generateContent?key=${effectiveGeminiKey}`;
-                                    const restResponse = await fetch(REST_URL, {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ contents: [{ parts: [{ text: textPrompt }] }] })
+                                    const client = new OpenAI({
+                                        apiKey: effectiveNvidiaKey,
+                                        baseURL: "https://integrate.api.nvidia.com/v1"
                                     });
-                                    if (!restResponse.ok) throw new Error(`HTTP ${restResponse.status}`);
-                                    const resultJson = await restResponse.json();
-                                    if (resultJson.candidates?.[0]?.content?.parts?.[0]?.text) {
-                                        const generated = resultJson.candidates[0].content.parts[0].text.trim();
+
+                                    const completion = await client.chat.completions.create({
+                                        model: "minimaxai/minimax-m2.7",
+                                        messages: [{ role: "user", content: textPrompt }],
+                                        temperature: 0.7, // Slightly lower for better JSON adherence
+                                        top_p: 0.95,
+                                        max_tokens: 1024,
+                                    });
+
+                                    if (completion.choices?.[0]?.message?.content) {
+                                        const generated = completion.choices[0].message.content.trim();
                                         const clean = generated.replace(/^```json/i, '').replace(/```$/g, '').trim();
                                         textData = JSON.parse(clean);
                                         if (textData?.title) historyTitles.push(textData.title);
-                                        break;
+                                        console.log(`[SUCCESS] Minimax AI worked!`);
                                     }
                                 } catch (err) {
-                                    console.warn(`[FAIL] Gemini ${modelInfo.m}: ${err.message.substring(0, 80)}`);
+                                    console.warn(`[FAIL] Minimax AI: ${err.message.substring(0, 80)}`);
+                                }
+                            }
+
+                            // ── Phase 2: Fallback to Gemini ──
+                            if (!textData && effectiveGeminiKey) {
+                                const modelsToTry = [
+                                    { v: 'v1beta', m: 'gemini-2.5-flash' },
+                                    { v: 'v1beta', m: 'gemini-2.0-flash-lite' },
+                                    { v: 'v1beta', m: 'gemini-1.5-flash' },
+                                    { v: 'v1', m: 'gemini-1.5-flash' }
+                                ];
+
+                                for (const modelInfo of modelsToTry) {
+                                    try {
+                                        const REST_URL = `https://generativelanguage.googleapis.com/${modelInfo.v}/models/${modelInfo.m}:generateContent?key=${effectiveGeminiKey}`;
+                                        const restResponse = await fetch(REST_URL, {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ contents: [{ parts: [{ text: textPrompt }] }] })
+                                        });
+                                        if (!restResponse.ok) throw new Error(`HTTP ${restResponse.status}`);
+                                        const resultJson = await restResponse.json();
+                                        if (resultJson.candidates?.[0]?.content?.parts?.[0]?.text) {
+                                            const generated = resultJson.candidates[0].content.parts[0].text.trim();
+                                            const clean = generated.replace(/^```json/i, '').replace(/```$/g, '').trim();
+                                            textData = JSON.parse(clean);
+                                            if (textData?.title) historyTitles.push(textData.title);
+                                            console.log(`[SUCCESS] Gemini ${modelInfo.m} worked!`);
+                                            break;
+                                        }
+                                    } catch (err) {
+                                        console.warn(`[FAIL] Gemini ${modelInfo.m}: ${err.message.substring(0, 80)}`);
+                                    }
                                 }
                             }
 

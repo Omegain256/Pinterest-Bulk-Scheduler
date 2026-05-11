@@ -21,6 +21,7 @@ export default function Home() {
   const [urls, setUrls] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
+  const [nvidiaKey, setNvidiaKey] = useState('');
   const [existingBoards, setExistingBoards] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPins, setGeneratedPins] = useState([]);
@@ -32,9 +33,11 @@ export default function Home() {
     if (typeof window === 'undefined') return;
     const k = localStorage.getItem('pinterest_tool_api_key');
     const g = localStorage.getItem('pinterest_tool_gemini_key');
+    const n = localStorage.getItem('pinterest_tool_nvidia_key');
     const b = localStorage.getItem('pinterest_tool_existing_boards');
     if (k) setApiKey(k);
     if (g) setGeminiKey(g);
+    if (n) setNvidiaKey(n);
     if (b) setExistingBoards(b);
   }, []);
 
@@ -269,6 +272,7 @@ export default function Home() {
               <UrlScraper
                 apiKey={apiKey}
                 geminiKey={geminiKey}
+                nvidiaKey={nvidiaKey}
                 niche={niche}
                 existingBoards={existingBoards}
                 onPinGenerated={(pin) => setGeneratedPins(prev => [...prev, pin])}
@@ -283,9 +287,10 @@ export default function Home() {
         {/* ── SETTINGS TAB ─────────────────────────────────────────────── */}
         {sidebarTab === 'settings' && (
           <SettingsPanel
-            onSave={({ apiKey: k, geminiKey: g }) => {
+            onSave={({ apiKey: k, geminiKey: g, nvidiaKey: n }) => {
               setApiKey(k);
               setGeminiKey(g);
+              setNvidiaKey(n);
             }}
           />
         )}

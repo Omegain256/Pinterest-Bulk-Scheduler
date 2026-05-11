@@ -54,7 +54,7 @@ const makeJob = (url = '', position = 1) => ({
     scrapeError: '',
 });
 
-export default function UrlScraper({ apiKey, geminiKey, niche, existingBoards, onPinGenerated, isGenerating, setIsGenerating }) {
+export default function UrlScraper({ apiKey, geminiKey, nvidiaKey, niche, existingBoards, onPinGenerated, isGenerating, setIsGenerating }) {
     const [jobs, setJobs] = useState([makeJob()]);
     const [variationCount, setVariationCount] = useState(1);
     const [selectedTemplates, setSelectedTemplates] = useState(new Set(['top_bar', 'cta_button', 'big_center', 'minimal']));
@@ -129,7 +129,7 @@ export default function UrlScraper({ apiKey, geminiKey, niche, existingBoards, o
             const response = await fetch('/api/scrape-generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey.trim() },
-                body: JSON.stringify({ jobs: jobsPayload, variationCount, niche, geminiKey: geminiKey.trim(), existingBoards: boardList, templates: Array.from(selectedTemplates) }),
+                body: JSON.stringify({ jobs: jobsPayload, variationCount, niche, geminiKey: geminiKey.trim(), nvidiaKey: (nvidiaKey || '').trim(), existingBoards: boardList, templates: Array.from(selectedTemplates) }),
             });
             if (!response.ok) {
                 const err = await response.json().catch(() => ({}));
