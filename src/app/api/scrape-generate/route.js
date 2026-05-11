@@ -138,7 +138,7 @@ Topic: ${slugKeyword || 'Inspiration'}
 REQUIRED JSON FORMAT (Return ONLY raw JSON):
 {
   "title": "A beautiful, human-readable SEO title (e.g., '13 Best Ways to Style Sweatpants for a Casual Look')",
-  "overlayText": "A punchy, meaningful hook for the image (e.g., 'Style Sweatpants', 'Casual Chic', 'Sweatpants Guide'). MUST make sense and be under 28 chars.",
+  "overlayText": "A punchy visual hook that MUST INCLUDE THE MAIN TOPIC/KEYWORD (e.g., 'Style Sweatpants', 'Sweatpants Ideas'). Keep it under 25 chars.",
   "description": "Engaging description (250 chars) with a call to action.",
   "keywords": "5-8 keywords",
   "generatedBoardName": "Relevant board"
