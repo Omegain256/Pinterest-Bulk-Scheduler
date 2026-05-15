@@ -131,7 +131,14 @@ export default function Home() {
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey.trim() },
-        body: JSON.stringify({ urls: [pinToRegen.sourceUrl], niche, aspectRatio: '9:16', geminiKey: geminiKey.trim(), existingBoards: boardList })
+        body: JSON.stringify({ 
+          urls: [pinToRegen.sourceUrl], 
+          niche, 
+          aspectRatio: '9:16', 
+          geminiKey: geminiKey.trim(), 
+          existingBoards: boardList,
+          rawImageUrl: pinToRegen.rawImageUrl // PERSISTENCE: Pass the original image
+        })
       });
 
       if (!response.ok) { setGeneratedPins(prev => prev.map(p => p.id === id ? { ...p, isRegenerating: false } : p)); return; }

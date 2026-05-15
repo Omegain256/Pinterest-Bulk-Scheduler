@@ -138,11 +138,13 @@ Topic: ${slugKeyword || 'Inspiration'}
 REQUIRED JSON FORMAT (Return ONLY raw JSON):
 {
   "title": "SEO title (e.g., '13 Best Ways to Style Sweatpants')",
-  "overlayText": "Visual hook (MUST include keyword, e.g., 'Style Sweatpants'). Max 25 chars. No fragments.",
+  "overlayText": "Visual hook (MUST include keyword, e.g., 'Style Sweatpants'). Max 25 chars. Keep it grammatical and catchy. No fragments.",
   "description": "Engaging 200-char description with keywords.",
   "keywords": "5 keywords",
   "generatedBoardName": "Board name"
-}`;
+}
+IMPORTANT: If the Topic contains a number of items, do NOT put the number in the overlayText. The system will add it automatically in a premium badge. Just provide the descriptive keyword phrase.
+`;
 
                                 let textData = null;
 
@@ -195,12 +197,18 @@ REQUIRED JSON FORMAT (Return ONLY raw JSON):
                                 
                                 // Smart prefix for listicles: Include keywords, avoid generic "X Ideas"
                                 if (imageCount > 1 && !finalOverlay.toLowerCase().includes('way')) {
-                                    const withWays = `${imageCount} Ways to ${finalOverlay}`;
-                                    const withIdeas = `${imageCount} ${finalOverlay} Ideas`;
+                                    // Clean "Outfits" -> "Outfit", "Looks" -> "Look" for singular phrasing if needed
+                                    let cleanPhrase = finalOverlay.trim();
+                                    if (cleanPhrase.toLowerCase().endsWith('s') && !cleanPhrase.toLowerCase().endsWith('ss')) {
+                                        cleanPhrase = cleanPhrase.substring(0, cleanPhrase.length - 1);
+                                    }
+
+                                    const withWays = `${imageCount} Ways to ${cleanPhrase}`;
+                                    const withIdeas = `${imageCount} ${cleanPhrase} Ideas`;
                                     
                                     if (withWays.length <= 32) finalOverlay = withWays;
                                     else if (withIdeas.length <= 32) finalOverlay = withIdeas;
-                                    else finalOverlay = `${imageCount} ${finalOverlay}`; // Just number + keyword
+                                    else finalOverlay = `${imageCount} ${cleanPhrase}`; // Just number + keyword
                                 }
                                 
                                 // Let overlayEngine handle scaling and wrapping without cutting
@@ -210,12 +218,13 @@ REQUIRED JSON FORMAT (Return ONLY raw JSON):
                                     id: `scrape-${Date.now()}-${pIdx}`,
                                     sourceUrl: jobSourceUrl || imageUrl,
                                     imageUrl: finalImageUrl,
+                                    rawImageUrl: imageUrl, // PERSISTENCE: Store the original raw image URL for regeneration
                                     title: textData.title,
                                     description: textData.description,
                                     keywords: textData.keywords,
                                     boardName: textData.generatedBoardName || 'My Boards',
                                     appliedTemplate: template,
-                                    versionTag: '3.9-HUMAN-FINESSE',
+                                    versionTag: '4.0-BADGE-STYLE',
                                 };
 
                                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(pin)}\n\n`));

@@ -46,7 +46,8 @@ export async function POST(req) {
             aspectRatio,
             geminiKey,
             existingBoards,
-            totalScraped // passed if coming from a context that already knows the count
+            totalScraped, // passed if coming from a context that already knows the count
+            rawImageUrl   // PERSISTENCE: If provided, skip Imagen and use this original image
         } = await req.json();
 
         const effectiveGeminiKey = (geminiKey || process.env.GEMINI_API_KEY)?.trim();
@@ -264,20 +265,24 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
                                 let imgData = null;
                                 let quotaExhausted = false;
                                 
-                                // Keys to try for Imagen
-                                const keysToTry = [
-                                    effectiveGeminiKey.trim(),
-                                    process.env.GEMINI_API_KEY.trim()
-                                ].filter((v, i, a) => a.indexOf(v) === i); // unique only
+                                let rawBuffer = null;
 
-                                // Models to try — ordered from most stable to least. imagen-3.0 is a reliable fallback.
-                                const imageModels = [
-                                    'imagen-4.0-generate-001',
-                                    'imagen-4.0-fast-generate-001',
-                                    'imagen-3.0-generate-001',
-                                ];
+                                // ── Persistence Check: If we have a raw image, skip generation ──
+                                if (rawImageUrl) {
+                                    try {
+                                        console.log(`[PERSISTENCE] Re-using existing image for regeneration: ${rawImageUrl.substring(0, 50)}...`);
+                                        const res = await fetch(rawImageUrl, { timeout: 10000 });
+                                        if (res.ok) {
+                                            rawBuffer = Buffer.from(await res.arrayBuffer());
+                                            imageResponseOk = true;
+                                        }
+                                    } catch (err) {
+                                        console.warn(`[PERSISTENCE FAIL] Could not fetch raw image: ${err.message}. Falling back to generation.`);
+                                    }
+                                }
 
-                                keyLoop: for (const currentKey of keysToTry) {
+                                if (!imageResponseOk) {
+                                    keyLoop: for (const currentKey of keysToTry) {
                                     for (const imgModel of imageModels) {
                                         try {
                                             console.log(`[RETRY] Attempting Imagen model: ${imgModel} with ${currentKey.substring(0, 8)}...`);
@@ -317,11 +322,10 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
                                     }
                                 }
 
-                                let rawBuffer;
-                                if (imageResponseOk) {
+                                if (imageResponseOk && !rawBuffer) {
                                     const rawBase64Image = imgData.predictions[0].bytesBase64Encoded;
                                     rawBuffer = Buffer.from(rawBase64Image, 'base64');
-                                } else {
+                                } else if (!imageResponseOk) {
                                     const reason = quotaExhausted ? "IMAGE QUOTA EXHAUSTED" : "IMAGE GEN FAILED";
                                     console.warn(`[FAIL] ${reason}. Final fallback applied.`);
                                     
@@ -383,6 +387,7 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
                             overlayText: finalOverlay,
                             description: textData.description.substring(0, 500),
                             imageUrl: finalImageUrl,
+                            rawImageUrl: rawImageUrl || finalImageUrl, // Store the original raw image URL
                             boardName: textData.generatedBoardName || 'Automated Ideas',
                             publishDate: new Date().toISOString(),
                             keywords: textData.keywords,

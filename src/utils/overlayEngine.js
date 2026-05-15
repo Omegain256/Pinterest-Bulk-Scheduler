@@ -51,36 +51,49 @@ const NUM_LH     = NUM_PX * 1.12;
  * Pixel-accurate word wrapping with dynamic font scaling.
  * If the resulting lines would overflow the layout, it scales down the font and re-wraps.
  */
-function wrapAndScale(ctx, text, maxW, initialPx, maxLines = 3) {
+function wrapAndScale(ctx, text, maxW, initialPx, maxLines = 4) {
     let currentPx = initialPx;
     let lines = [];
     
     // Scale down loop
-    while (currentPx > 80) { // Don't go smaller than 80px
+    while (currentPx > 70) { // Slightly lower floor for very long titles
         ctx.font = `900 ${currentPx}px Montserrat`;
-        const words = text.split(' ');
+        const words = text.trim().split(/\s+/);
         lines = [];
         let cur = '';
         
         for (const word of words) {
             const test = cur ? `${cur} ${word}` : word;
-            if (ctx.measureText(test).width <= maxW) {
+            const metrics = ctx.measureText(test);
+            
+            if (metrics.width <= maxW) {
                 cur = test;
             } else {
                 if (cur) lines.push(cur);
                 cur = word;
+                
+                // CRITICAL: If a single word is wider than maxW even at this font size,
+                // we MUST shrink further immediately.
+                if (ctx.measureText(word).width > maxW) {
+                    lines = [text]; // force overflow detection
+                    break;
+                }
             }
         }
         if (cur) lines.push(cur);
         
         // If it fits within maxLines, we're good
-        if (lines.length <= maxLines) break;
+        if (lines.length <= maxLines) {
+            // Check if ANY line is still wider (edge case)
+            const overflows = lines.some(l => ctx.measureText(l).width > maxW + 5);
+            if (!overflows) break;
+        }
         
         // Otherwise, shrink and try again
-        currentPx -= 10;
+        currentPx -= 8;
     }
     
-    return { lines, px: currentPx, lh: currentPx * 1.08 };
+    return { lines, px: currentPx, lh: currentPx * 1.05 };
 }
 
 /**
@@ -113,10 +126,17 @@ function shadowFill(ctx, text, x, y, color = '#FFFFFF') {
     ctx.shadowOffsetY = 0;
 }
 
-/** Extract a leading number token ("15", "28+") from a title string. */
+/** Extract a leading number token ("15", "28+") from a title string. Handles "13+ Ways" or "13 Outfit". */
 function parseNum(title) {
-    const m = title.match(/^(\d+\+?)\s+(.+)/);
-    return m ? { num: m[1], rest: m[2] } : { num: null, rest: title };
+    if (!title) return { num: null, rest: '' };
+    // Match leading digits possibly followed by + or other chars, then a separator
+    const m = title.match(/^(\d+\+?)\s*(.*)/);
+    if (m) {
+        let rest = m[2].trim();
+        // If rest starts with "WAYS TO" or "IDEAS", we might want to clean it or keep it
+        return { num: m[1], rest: rest || '' };
+    }
+    return { num: null, rest: title };
 }
 
 /** Draw rounded-rect path (call fill/stroke after). */
@@ -251,38 +271,58 @@ function buildBigCenter(title) {
     // ── Font Scaling ──
     const { lines: keyLines, px: activeFontPx, lh: activeLH } = wrapAndScale(ctx, keyText, MAX_W, FONT_PX, 7);
 
-    const separatorHeight = num ? (8 + 30 + (NUM_LH * 0.8)) : 0;
-    const specs = [
-        ...(num ? [{ text: num, px: NUM_PX, lh: NUM_LH, color: GOLD }] : []),
-        ...keyLines.map(l => ({ text: l, px: activeFontPx, lh: activeLH })),
-    ];
+    const specs = keyLines.map(l => ({ text: l, px: activeFontPx, lh: activeLH }));
+    const totalTextH = specs.reduce((s, l) => s + l.lh, 0);
+    
+    // Number Layout (Badge Style)
+    let numH = 0;
+    if (num) {
+        numH = NUM_PX * 1.2 + 40; // Space for badge + gap
+    }
 
-    const totalH = specs.reduce((s, l) => s + l.lh, 0) + separatorHeight;
+    const totalH = totalTextH + numH;
 
-    // True vertical center: block is centered at 50% of canvas height
+    // True vertical center
     let y = H * 0.50 - totalH / 2;
-    if (y < H * 0.08) y = H * 0.08; // slightly more headroom
+    if (y < H * 0.10) y = H * 0.10;
 
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'top';
 
+    // 1. Draw Number Badge if exists
+    if (num) {
+        ctx.font = `900 ${NUM_PX}px Montserrat, sans-serif`;
+        const metrics = ctx.measureText(num);
+        const bw = Math.max(metrics.width + 80, 200);
+        const bh = NUM_PX * 1.2;
+        const bx = (W - bw) / 2;
+        
+        // Premium Sticker/Badge shadow
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.4)';
+        ctx.shadowBlur = 30;
+        ctx.shadowOffsetY = 15;
+        
+        // Gold Badge Background
+        rrect(ctx, bx, y, bw, bh, 30);
+        ctx.fillStyle = GOLD;
+        ctx.fill();
+        ctx.restore();
+
+        // Number Text inside badge (White for contrast)
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(num, W / 2, y + bh / 2 + 5);
+        
+        y += bh + 40; // Gap after badge
+    }
+
+    // 2. Draw Title Text
+    ctx.textBaseline = 'top';
     for (const spec of specs) {
         ctx.font = `900 ${spec.px}px Montserrat, sans-serif`;
-        shadowFill(ctx, spec.text, W / 2, y, spec.color || '#FFFFFF');
-        
-        // Add a small gold separator line after the number
-        if (spec.text === num && num) {
-            y += spec.lh * 0.8;
-            ctx.fillStyle = GOLD;
-            ctx.globalAlpha = 0.8;
-            const sw = 160, sh = 8;
-            rrect(ctx, (W - sw) / 2, y, sw, sh, 4);
-            ctx.fill();
-            ctx.globalAlpha = 1.0;
-            y += sh + 30; // Spacing after separator
-        } else {
-            y += spec.lh;
-        }
+        shadowFill(ctx, spec.text, W / 2, y, '#FFFFFF');
+        y += spec.lh;
     }
 
     return canvas.toBuffer('image/png');
