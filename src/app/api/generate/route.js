@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import sharp from 'sharp';
+import OpenAI from 'openai';
 import { generateOverlayBuffer } from '@/utils/overlayEngine.js';
 
 // --- CACHE BUST RE-EVALUATION LOGIC ---
@@ -45,12 +46,20 @@ export async function POST(req) {
             niche,
             aspectRatio,
             geminiKey,
+            nvidiaKey,
             existingBoards,
             totalScraped, // passed if coming from a context that already knows the count
             rawImageUrl   // PERSISTENCE: If provided, skip Imagen and use this original image
         } = await req.json();
 
         const effectiveGeminiKey = (geminiKey || process.env.GEMINI_API_KEY)?.trim();
+        const effectiveNvidiaKey = (nvidiaKey || process.env.NVIDIA_API_KEY)?.trim();
+
+        const nvidiaClient = effectiveNvidiaKey ? new OpenAI({
+            apiKey: effectiveNvidiaKey,
+            baseURL: "https://integrate.api.nvidia.com/v1",
+            timeout: 15000 
+        }) : null;
 
         if (!urls || urls.length === 0) {
             return NextResponse.json({ error: 'No URLs provided' }, { status: 400 });
@@ -173,55 +182,39 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
   "imagePrompt": "Detailed photography prompt. NO TEXT."
 }
 `;
-                            // Phase 1: Verified Smart Text Generation Fallback Chain
-                            // PROBED & CONFIRMED for this key: v1beta/gemini-2.5-flash
-                            const modelsToTry = [
-                                { v: 'v1beta', m: 'gemini-2.5-flash' },
-                                { v: 'v1beta', m: 'gemini-2.0-flash-lite' },
-                                { v: 'v1beta', m: 'gemini-1.5-flash' },
-                                { v: 'v1', m: 'gemini-1.5-flash' }
-                            ];
+                             let success = false;
+                             let lastError = null;
 
-                            let lastError = null;
-                            let success = false;
+                             // 1. Try Minimax (Nvidia) first as requested
+                             if (nvidiaClient) {
+                                 try {
+                                     console.log(`[TEXT] Attempting Minimax...`);
+                                     const completion = await nvidiaClient.chat.completions.create({
+                                         model: "minimaxai/minimax-m2.7",
+                                         messages: [{ role: "user", content: textPrompt }],
+                                         max_tokens: 800,
+                                     });
+                                     const msg = completion.choices?.[0]?.message;
+                                     const raw = (msg?.content || msg?.reasoning_content || '').trim();
+                                     if (raw) {
+                                         const cleanJsonStr = raw.replace(/^```json/i, '').replace(/```$/g, '').trim();
+                                         textData = JSON.parse(cleanJsonStr);
+                                         if (textData && textData.title) historyTitles.push(textData.title);
+                                         success = true;
+                                         console.log(`[SUCCESS] Minimax worked!`);
+                                     }
+                                 } catch (err) {
+                                     console.warn(`[FAIL] Minimax failed: ${err.message}`);
+                                     lastError = err;
+                                 }
+                             }
 
-                            for (const modelInfo of modelsToTry) {
-                                try {
-                                    const REST_URL = `https://generativelanguage.googleapis.com/${modelInfo.v}/models/${modelInfo.m}:generateContent?key=${effectiveGeminiKey.trim()}`;
-                                    console.log(`[RETRY] Attempting ${modelInfo.v}/${modelInfo.m}...`);
-                                    
-                                    const restResponse = await fetch(REST_URL, {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                            contents: [{ parts: [{ text: textPrompt }] }]
-                                        })
-                                    });
+                             // 2. Try Gemini (REMOVED - ONLY NVIDIA/MINIMAX FOR TEXT)
+                             // if (!success && effectiveGeminiKey) { ... }
 
-                                    if (!restResponse.ok) {
-                                        const errorMsg = await restResponse.text();
-                                        throw new Error(`(${restResponse.status}): ${errorMsg}`);
-                                    }
-
-                                    const resultJson = await restResponse.json();
-                                    if (resultJson.candidates && resultJson.candidates.length > 0) {
-                                        const generatedText = resultJson.candidates[0].content.parts[0].text.trim();
-                                        const cleanJsonStr = generatedText.replace(/^```json/i, '').replace(/```$/g, '').trim();
-                                        textData = JSON.parse(cleanJsonStr);
-                                        if (textData && textData.title) historyTitles.push(textData.title);
-                                        success = true;
-                                        console.log(`[SUCCESS] Gemini ${modelInfo.m} worked!`);
-                                        break;
-                                    }
-                                } catch (err) {
-                                    console.warn(`[FAIL] Gemini ${modelInfo.m} failed: ${err.message.substring(0, 100)}`);
-                                    lastError = err;
-                                }
-                            }
-
-                            if (!success) {
-                                throw lastError || new Error('All Gemini models failed in fallback chain.');
-                            }
+                             if (!success) {
+                                 throw lastError || new Error('Text generation failed (Minimax unavailable or failed).');
+                             }
 
                         } catch (textErr) {
                             console.error(`Gemini Text Generation Error for ${url}:`, textErr.message);

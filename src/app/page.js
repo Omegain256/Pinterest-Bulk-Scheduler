@@ -72,7 +72,7 @@ export default function Home() {
         const response = await fetch('/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey.trim() },
-          body: JSON.stringify({ urls: chunk, niche, aspectRatio: '9:16', geminiKey: geminiKey.trim(), existingBoards: boardList })
+          body: JSON.stringify({ urls: chunk, niche, aspectRatio: '9:16', geminiKey: geminiKey.trim(), nvidiaKey: nvidiaKey.trim(), existingBoards: boardList })
         });
 
         if (!response.ok) {
@@ -136,6 +136,7 @@ export default function Home() {
           niche, 
           aspectRatio: '9:16', 
           geminiKey: geminiKey.trim(), 
+          nvidiaKey: nvidiaKey.trim(), 
           existingBoards: boardList,
           rawImageUrl: pinToRegen.rawImageUrl // PERSISTENCE: Pass the original image
         })

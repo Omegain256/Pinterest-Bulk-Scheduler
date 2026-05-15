@@ -162,24 +162,6 @@ IMPORTANT: If the Topic contains a number of items, do NOT put the number in the
                                     } catch (err) { console.warn(`[NVIDIA Fail] ${err.message}`); }
                                 }
 
-                                // 2. Try Gemini
-                                if (!textData && effectiveGeminiKey) {
-                                    try {
-                                        const abort = new AbortController();
-                                        const tid = setTimeout(() => abort.abort(), 12000);
-                                        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${effectiveGeminiKey}`, {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ contents: [{ parts: [{ text: textPrompt }] }] }),
-                                            signal: abort.signal
-                                        });
-                                        clearTimeout(tid);
-                                        const json = await res.json();
-                                        const raw = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-                                        if (raw) textData = extractJSON(raw);
-                                    } catch (err) { console.warn(`[Gemini Fail] ${err.message}`); }
-                                }
-
                                 // ── PERMANENT FALLBACK ──
                                 if (!textData) {
                                     const base = slugKeyword || 'Style Inspiration';
