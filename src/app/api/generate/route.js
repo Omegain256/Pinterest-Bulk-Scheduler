@@ -327,6 +327,7 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
                                         }
                                     }
                                 }
+                            }
 
                                 if (imageResponseOk && !rawBuffer) {
                                     const rawBase64Image = imgData.predictions[0].bytesBase64Encoded;
