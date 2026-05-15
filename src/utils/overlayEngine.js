@@ -126,18 +126,7 @@ function shadowFill(ctx, text, x, y, color = '#FFFFFF') {
     ctx.shadowOffsetY = 0;
 }
 
-/** Extract a leading number token ("15", "28+") from a title string. Handles "13+ Ways" or "13 Outfit". */
-function parseNum(title) {
-    if (!title) return { num: null, rest: '' };
-    // Match leading digits possibly followed by + or other chars, then a separator
-    const m = title.match(/^(\d+\+?)\s*(.*)/);
-    if (m) {
-        let rest = m[2].trim();
-        // If rest starts with "WAYS TO" or "IDEAS", we might want to clean it or keep it
-        return { num: m[1], rest: rest || '' };
-    }
-    return { num: null, rest: title };
-}
+// parseNum removed - no longer using separate badges
 
 /** Draw rounded-rect path (call fill/stroke after). */
 function rrect(ctx, x, y, w, h, r) {
@@ -159,27 +148,30 @@ function rrect(ctx, x, y, w, h, r) {
 // Floating bold white text at the top. Number in gold. Shadow-only.
 // ─────────────────────────────────────────────────────────────────────────────
 function buildTopBar(title) {
+    ensureFont();
     const canvas = createCanvas(W, H);
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, W, H);
 
-    const { num, rest } = parseNum(title);
-    const keyText = (rest || title).toUpperCase();
-    const { lines: keyLines, px: activeFontPx, lh: activeLH } = wrapAndScale(ctx, keyText, MAX_W, FONT_PX, 7);
+    const keyText = title.toUpperCase();
 
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'top';
 
-    const specs = [
-        ...(num ? [{ text: num, px: NUM_PX, lh: NUM_LH, color: GOLD }] : []),
-        ...keyLines.map(l => ({ text: l, px: activeFontPx, lh: activeLH, color: '#FFFFFF' })),
-    ];
+    const { lines: keyLines, px: activeFontPx, lh: activeLH } = wrapAndScale(ctx, keyText, MAX_W, FONT_PX, 4);
 
-    let y = 90; // top padding
-    for (const spec of specs) {
-        ctx.font = `900 ${spec.px}px Montserrat, sans-serif`;
-        shadowFill(ctx, spec.text, W / 2, y, spec.color);
-        y += spec.lh;
+    // ── Styling: Soft Elegant Drop Shadow ──
+    ctx.shadowColor   = 'rgba(0, 0, 0, 0.45)';
+    ctx.shadowBlur    = 25;
+    ctx.shadowOffsetX = 4;
+    ctx.shadowOffsetY = 4;
+
+    let y = 100; // Top padding
+    for (const line of keyLines) {
+        ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(line, W / 2, y);
+        y += activeLH;
     }
 
     return canvas.toBuffer('image/png');
@@ -191,40 +183,33 @@ function buildTopBar(title) {
 // anchored to the bottom.
 // ─────────────────────────────────────────────────────────────────────────────
 function buildCTA(title) {
+    ensureFont();
     const canvas = createCanvas(W, H);
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, W, H);
 
-    const { num, rest } = parseNum(title);
+    const keyText = title.toUpperCase();
 
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillStyle    = '#FFFFFF';
 
-    let y = 90;
-
-    const { lines, px: activeFontPx, lh: activeLH } = wrapAndScale(ctx, (rest || title).toUpperCase(), MAX_W, FONT_PX, 6);
+    const { lines, px: activeFontPx, lh: activeLH } = wrapAndScale(ctx, keyText, MAX_W, FONT_PX, 6);
     
-    if (num) {
-        // Large number first in Gold
-        ctx.font = `900 ${NUM_PX}px Montserrat, sans-serif`;
-        shadowFill(ctx, num, W / 2, y, GOLD);
-        y += NUM_PX * 1.1;
+    // ── Title Styling ──
+    ctx.shadowColor   = 'rgba(0, 0, 0, 0.45)';
+    ctx.shadowBlur    = 25;
+    ctx.shadowOffsetX = 4;
+    ctx.shadowOffsetY = 4;
 
-        for (const line of lines) {
-            ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
-            shadowFill(ctx, line, W / 2, y);
-            y += activeLH;
-        }
-    } else {
-        for (const line of lines) {
-            ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
-            shadowFill(ctx, line, W / 2, y);
-            y += activeLH;
-        }
+    let y = 100;
+    for (const line of lines) {
+        ctx.font = `900 ${activeFontPx}px Montserrat, sans-serif`;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(line, W / 2, y);
+        y += activeLH;
     }
 
-    // ── Deep-red pill button at bottom ───────────────────────────────────
+    // ── Deep-red pill button at bottom (Standard Pinterest CTA style) ──
     const BW = 900, BH = 130, BR = 65;
     const BX = (W - BW) / 2;
     const BY = H - BH - 110;
@@ -238,9 +223,6 @@ function buildCTA(title) {
     ctx.fill();
 
     ctx.shadowColor   = 'transparent';
-    ctx.shadowBlur    = 0;
-    ctx.shadowOffsetY = 0;
-
     ctx.font         = `800 70px Montserrat, sans-serif`;
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
@@ -253,77 +235,42 @@ function buildCTA(title) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Template 3 — Big Bold Center
-// Exact match to reference: "15 AIRPORT OUTFIT IDEAS"
-// • Font: Montserrat Bold, FIXED at 150px (140–160pt spec)
-// • Text wraps with wrapByWidth — NOT one-word-per-line (prevents takeover)
-// • Max 4 lines hard cap
-// • Center-aligned, bottom-anchored so block ends at ~88% of canvas height
-// • Drop shadow only — NO stroke
 // ─────────────────────────────────────────────────────────────────────────────
 function buildBigCenter(title) {
+    ensureFont();
     const canvas = createCanvas(W, H);
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, W, H);
 
-    const { num, rest } = parseNum(title);
-    const keyText = (rest || title).toUpperCase();
+    const keyText = title.toUpperCase();
 
-    // ── Font Scaling ──
-    const { lines: keyLines, px: activeFontPx, lh: activeLH } = wrapAndScale(ctx, keyText, MAX_W, FONT_PX, 7);
+    // ── Font Scaling & Wrapping ──
+    // Match reference: bold white text, roughly center-middle, well-spaced
+    const { lines: keyLines, px: activeFontPx, lh: activeLH } = wrapAndScale(ctx, keyText, MAX_W, FONT_PX, 5);
 
     const specs = keyLines.map(l => ({ text: l, px: activeFontPx, lh: activeLH }));
     const totalTextH = specs.reduce((s, l) => s + l.lh, 0);
     
-    // Number Layout (Badge Style)
-    let numH = 0;
-    if (num) {
-        numH = NUM_PX * 1.2 + 40; // Space for badge + gap
-    }
-
-    const totalH = totalTextH + numH;
-
-    // True vertical center
-    let y = H * 0.50 - totalH / 2;
+    // Position text block centered vertically but slightly lower for aesthetic (middle-bottom)
+    let y = H * 0.55 - totalTextH / 2;
     if (y < H * 0.10) y = H * 0.10;
 
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'top';
 
-    // 1. Draw Number Badge if exists
-    if (num) {
-        ctx.font = `900 ${NUM_PX}px Montserrat, sans-serif`;
-        const metrics = ctx.measureText(num);
-        const bw = Math.max(metrics.width + 80, 200);
-        const bh = NUM_PX * 1.2;
-        const bx = (W - bw) / 2;
-        
-        // Premium Sticker/Badge shadow
-        ctx.save();
-        ctx.shadowColor = 'rgba(0,0,0,0.4)';
-        ctx.shadowBlur = 30;
-        ctx.shadowOffsetY = 15;
-        
-        // Gold Badge Background
-        rrect(ctx, bx, y, bw, bh, 30);
-        ctx.fillStyle = GOLD;
-        ctx.fill();
-        ctx.restore();
+    // ── Styling: Soft Elegant Drop Shadow (Exactly like reference) ──
+    ctx.shadowColor   = 'rgba(0, 0, 0, 0.45)';
+    ctx.shadowBlur    = 25;
+    ctx.shadowOffsetX = 4;
+    ctx.shadowOffsetY = 4;
 
-        // Number Text inside badge (White for contrast)
-        ctx.fillStyle = '#FFFFFF';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(num, W / 2, y + bh / 2 + 5);
-        
-        y += bh + 40; // Gap after badge
-    }
-
-    // 2. Draw Title Text
-    ctx.textBaseline = 'top';
-    for (const spec of specs) {
+    // ── Drawing ──
+    specs.forEach(spec => {
         ctx.font = `900 ${spec.px}px Montserrat, sans-serif`;
-        shadowFill(ctx, spec.text, W / 2, y, '#FFFFFF');
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(spec.text, W / 2, y);
         y += spec.lh;
-    }
+    });
 
     return canvas.toBuffer('image/png');
 }

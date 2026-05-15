@@ -175,7 +175,7 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
 
 {
   "title": "SEO title (e.g., '13 Best Ways to Style Sweatpants')",
-  "overlayText": "Visual hook (MUST include keyword, e.g., 'Style Sweatpants'). Max 25 chars.",
+  "overlayText": "Visual hook (e.g., '13 Ways to Style Sweatpants'). Max 25 chars. MUST be directly informed by the article title and make sense.",
   "description": "Engaging description with keywords. Max 500 chars.",
   "keywords": "5 keywords",
   "generatedBoardName": "Board name",
@@ -273,6 +273,19 @@ CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". E
                                         console.warn(`[PERSISTENCE FAIL] Could not fetch raw image: ${err.message}. Falling back to generation.`);
                                     }
                                 }
+
+                                // Keys to try for Imagen
+                                const keysToTry = [
+                                    effectiveGeminiKey.trim(),
+                                    process.env.GEMINI_API_KEY.trim()
+                                ].filter((v, i, a) => a.indexOf(v) === i); // unique only
+
+                                // Models to try — ordered from most stable to least. imagen-3.0 is a reliable fallback.
+                                const imageModels = [
+                                    'imagen-4.0-generate-001',
+                                    'imagen-4.0-fast-generate-001',
+                                    'imagen-3.0-generate-001',
+                                ];
 
                                 if (!imageResponseOk) {
                                     keyLoop: for (const currentKey of keysToTry) {

@@ -138,12 +138,11 @@ Topic: ${slugKeyword || 'Inspiration'}
 REQUIRED JSON FORMAT (Return ONLY raw JSON):
 {
   "title": "SEO title (e.g., '13 Best Ways to Style Sweatpants')",
-  "overlayText": "Visual hook (MUST include keyword, e.g., 'Style Sweatpants'). Max 25 chars. Keep it grammatical and catchy. No fragments.",
+  "overlayText": "Visual hook (e.g., '13 Style Sweatpants'). Max 25 chars. Must be informed by the article title and make logical sense. Keep it punchy.",
   "description": "Engaging 200-char description with keywords.",
   "keywords": "5 keywords",
   "generatedBoardName": "Board name"
 }
-IMPORTANT: If the Topic contains a number of items, do NOT put the number in the overlayText. The system will add it automatically in a premium badge. Just provide the descriptive keyword phrase.
 `;
 
                                 let textData = null;
