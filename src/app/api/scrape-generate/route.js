@@ -138,7 +138,7 @@ Topic: ${slugKeyword || 'Inspiration'}
 REQUIRED JSON FORMAT (Return ONLY raw JSON):
 {
   "title": "SEO title (e.g., '13 Best Ways to Style Sweatpants')",
-  "overlayText": "Visual hook (e.g., '13 Style Sweatpants'). Max 25 chars. Must be informed by the article title and make logical sense. Keep it punchy.",
+  "overlayText": "Visual hook (e.g., '13 Ways to Style Sweatpants'). Max 25 chars. Must be informed by the article title and make logical sense. Keep it punchy.",
   "description": "Engaging 200-char description with keywords.",
   "keywords": "5 keywords",
   "generatedBoardName": "Board name"
@@ -178,18 +178,19 @@ REQUIRED JSON FORMAT (Return ONLY raw JSON):
                                 
                                 // Smart prefix for listicles: Include keywords, avoid generic "X Ideas"
                                 if (imageCount > 1 && !finalOverlay.toLowerCase().includes('way')) {
-                                    // Clean "Outfits" -> "Outfit", "Looks" -> "Look" for singular phrasing if needed
+                                    // Clean "Outfits" -> "Outfit", "Looks" -> "Look" for singular phrasing if needed (e.g. for "Outfit Ideas")
                                     let cleanPhrase = finalOverlay.trim();
                                     if (cleanPhrase.toLowerCase().endsWith('s') && !cleanPhrase.toLowerCase().endsWith('ss')) {
                                         cleanPhrase = cleanPhrase.substring(0, cleanPhrase.length - 1);
                                     }
 
-                                    const withWays = `${imageCount} Ways to ${cleanPhrase}`;
+                                    // Fix: Use "Ways to Style" and preserve plural for "Ways to Style Linen Pants"
+                                    const withWays = `${imageCount} Ways to Style ${finalOverlay.trim()}`;
                                     const withIdeas = `${imageCount} ${cleanPhrase} Ideas`;
                                     
                                     if (withWays.length <= 32) finalOverlay = withWays;
                                     else if (withIdeas.length <= 32) finalOverlay = withIdeas;
-                                    else finalOverlay = `${imageCount} ${cleanPhrase}`; // Just number + keyword
+                                    else finalOverlay = `${imageCount} ${finalOverlay.trim()}`; // Just number + keyword
                                 }
                                 
                                 // Let overlayEngine handle scaling and wrapping without cutting
