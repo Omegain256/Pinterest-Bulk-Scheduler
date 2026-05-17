@@ -178,19 +178,22 @@ REQUIRED JSON FORMAT (Return ONLY raw JSON):
                                 
                                 // Smart prefix for listicles: Include keywords, avoid generic "X Ideas"
                                 if (imageCount > 1 && !finalOverlay.toLowerCase().includes('way')) {
-                                    // Clean "Outfits" -> "Outfit", "Looks" -> "Look" for singular phrasing if needed (e.g. for "Outfit Ideas")
-                                    let cleanPhrase = finalOverlay.trim();
+                                    // Remove "ideas" or "idea" if present to avoid duplication (e.g. "Prom Shoes Ideas" -> "Prom Shoes")
+                                    let basePhrase = finalOverlay.trim().replace(/\b(ideas|idea)\b/gi, '').trim();
+                                    
+                                    // Clean "Outfits" -> "Outfit", "Looks" -> "Look" for singular phrasing in "withIdeas"
+                                    let cleanPhrase = basePhrase;
                                     if (cleanPhrase.toLowerCase().endsWith('s') && !cleanPhrase.toLowerCase().endsWith('ss')) {
                                         cleanPhrase = cleanPhrase.substring(0, cleanPhrase.length - 1);
                                     }
 
-                                    // Fix: Use "Ways to Style" and preserve plural for "Ways to Style Linen Pants"
-                                    const withWays = `${imageCount} Ways to Style ${finalOverlay.trim()}`;
+                                    // Use basePhrase for "Ways to Style" to keep it plural
+                                    const withWays = `${imageCount} Ways to Style ${basePhrase}`;
                                     const withIdeas = `${imageCount} ${cleanPhrase} Ideas`;
                                     
                                     if (withWays.length <= 32) finalOverlay = withWays;
                                     else if (withIdeas.length <= 32) finalOverlay = withIdeas;
-                                    else finalOverlay = `${imageCount} ${finalOverlay.trim()}`; // Just number + keyword
+                                    else finalOverlay = `${imageCount} ${basePhrase}`; // Just number + keyword
                                 }
                                 
                                 // Let overlayEngine handle scaling and wrapping without cutting
