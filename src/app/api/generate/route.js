@@ -170,14 +170,15 @@ Every title/overlay variation must stay on this topic.` : ''}
 CRITICAL RULES:
 1. The subject for the pins and images MUST ALWAYS be female unless the URL/topic explicitly states otherwise (e.g. 'mens'). Use feminine pronouns (she/her) in descriptions.
 2. DO NOT use generic AI buzzwords like "Chic", "Elevated", "Stunning", "Captivating", or "Trendy" in ANY of the generated text (title, shortOverlayTitle, description, imagePrompt).
+3. You MUST naturally integrate the generated keywords into both the title and the description. The text must read naturally for a human reader, not like a list of tags.
 
 CRITICAL TONE REQUIREMENT: Use this exact copywriting angle: "${randomAngle}". Ensure the description flows naturally with this tone so that multiple similar topics do not sound repetitive.
 
 {
   "title": "SEO title (e.g., '13 Best Ways to Style Sweatpants')",
   "overlayText": "Visual hook (e.g., '13 Ways to Style Sweatpants'). Max 25 chars. MUST be directly informed by the article title and make sense.",
-  "description": "Engaging description with keywords. Max 500 chars.",
-  "keywords": "5 keywords",
+  "description": "Engaging description naturally integrating the keywords. Max 500 chars.",
+  "keywords": "Comma-separated list of the 5 keywords used above",
   "generatedBoardName": "Board name",
   "imagePrompt": "Detailed photography prompt. NO TEXT."
 }

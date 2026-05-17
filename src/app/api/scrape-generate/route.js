@@ -135,12 +135,18 @@ Task: Write metadata for an image from "${jobSourceUrl || imageUrl}".
 Niche: ${niche}
 Topic: ${slugKeyword || 'Inspiration'}
 
+INSTRUCTIONS:
+1. Generate 5 highly relevant keywords for this topic.
+2. Integrate these keywords NATURALLY into both the title and the description. Do not just list them. They must read like a natural, compelling sentence or phrase.
+3. The title must be an engaging SEO title that uses the primary keyword.
+4. The description must be a natural, engaging paragraph (max 200 chars) that includes the keywords in a human-readable way.
+
 REQUIRED JSON FORMAT (Return ONLY raw JSON):
 {
   "title": "SEO title (e.g., '13 Best Ways to Style Sweatpants')",
   "overlayText": "Visual hook (e.g., '13 Ways to Style Sweatpants'). Max 25 chars. Must be informed by the article title and make logical sense. Keep it punchy.",
-  "description": "Engaging 200-char description with keywords.",
-  "keywords": "5 keywords",
+  "description": "Engaging description naturally integrating the keywords.",
+  "keywords": "Comma-separated list of the 5 keywords used above",
   "generatedBoardName": "Board name"
 }
 `;
